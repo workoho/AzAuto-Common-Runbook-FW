@@ -589,37 +589,37 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
                 continue
             }
 
-            if ($null -ne $Role.AdministrativeUnitReference -and $Role.AdministrativeUnitReference -is [hashtable]) {
-                if ([string]::IsNullOrEmpty($Role.AdministrativeUnitReference.DisplayName) -and [string]::IsNullOrEmpty($Role.AdministrativeUnitReference.Id)) {
+            if ($null -ne $Role.AdministrativeUnit -and $Role.AdministrativeUnit -is [hashtable]) {
+                if ([string]::IsNullOrEmpty($Role.AdministrativeUnit.DisplayName) -and [string]::IsNullOrEmpty($Role.AdministrativeUnit.Id)) {
                     Write-Error "Administrative unit reference for directory role '$($Role.DisplayName)' must have a 'DisplayName' or 'Id' property in configuration." -ErrorAction Stop
                     return
                 }
                 try {
                     $adminUnit = $null
-                    if ([string]::IsNullOrEmpty($Role.AdministrativeUnitReference.Id)) {
-                        $adminUnit = Get-MgBetaAdministrativeUnit -Filter "displayName eq '$($Role.AdministrativeUnitReference.DisplayName)'" -ErrorAction Stop
+                    if ([string]::IsNullOrEmpty($Role.AdministrativeUnit.Id)) {
+                        $adminUnit = Get-MgBetaAdministrativeUnit -Filter "displayName eq '$($Role.AdministrativeUnit.DisplayName)'" -ErrorAction Stop
                     }
                     else {
-                        $adminUnit = Get-MgBetaAdministrativeUnit -AdministrativeUnitId $Role.AdministrativeUnitReference.Id -ErrorAction Stop
+                        $adminUnit = Get-MgBetaAdministrativeUnit -AdministrativeUnitId $Role.AdministrativeUnit.Id -ErrorAction Stop
                     }
                     if ($adminUnit.Count -gt 1) {
                         Write-Host "    (ERROR)   " -NoNewline -ForegroundColor Red
-                        Write-Host "$($RoleDefinition.DisplayName) (Id: $($RoleDefinition.Id)$(if ([string]::IsNullOrEmpty($Role.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($Role.AdministrativeUnitReference.DisplayName)" }))`n                          " -NoNewline
-                        Write-Error "Multiple administrative units found with the same name '$($Role.AdministrativeUnitReference.DisplayName)'. Please ensure that the administrative unit names are unique, or add Object ID to configuration." -ErrorAction Stop
+                        Write-Host "$($RoleDefinition.DisplayName) (Id: $($RoleDefinition.Id)$(if ([string]::IsNullOrEmpty($Role.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($Role.AdministrativeUnit.DisplayName)" }))`n                          " -NoNewline
+                        Write-Error "Multiple administrative units found with the same name '$($Role.AdministrativeUnit.DisplayName)'. Please ensure that the administrative unit names are unique, or add Object ID to configuration." -ErrorAction Stop
                         return
                     }
-                    $Role.AdministrativeUnitReference = $adminUnit
-                    Write-Verbose " Found Administrative Unit for group: $($Role.AdministrativeUnitReference.DisplayName) ($($Role.AdministrativeUnitReference.Id))"
+                    $Role.AdministrativeUnit = $adminUnit
+                    Write-Verbose " Found Administrative Unit for group: $($Role.AdministrativeUnit.DisplayName) ($($Role.AdministrativeUnit.Id))"
                 }
                 catch {
-                    Write-Error "Administrative unit '$($Role.AdministrativeUnitReference.DisplayName)' for directory role scope '$($Role.DisplayName)' not found." -ErrorAction Stop
+                    Write-Error "Administrative unit '$($Role.AdministrativeUnit.DisplayName)' for directory role scope '$($Role.DisplayName)' not found." -ErrorAction Stop
                     return
                 }
             }
 
             if ($null -eq $Role.DirectoryScopeId) {
-                if ($null -ne $Role.AdministrativeUnitReference.Id) {
-                    $Role.DirectoryScopeId = "/administrativeUnits/$($Role.AdministrativeUnitReference.Id)"
+                if ($null -ne $Role.AdministrativeUnit.Id) {
+                    $Role.DirectoryScopeId = "/administrativeUnits/$($Role.AdministrativeUnit.Id)"
                     Write-Verbose "Setting DirectoryScopeId to $($Role.DirectoryScopeId)."
                 } else {
                     $Role.DirectoryScopeId = '/'
@@ -628,13 +628,13 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
 
             if ($DirectoryRoleAssignments | Where-Object { $_.RoleDefinitionId -eq $RoleDefinition.Id -and $_.DirectoryScopeId -eq $Role.DirectoryScopeId }) {
                 Write-Host "                (Ok)      " -NoNewline -ForegroundColor Green
-                Write-Host "$($RoleDefinition.DisplayName) (Id: $($RoleDefinition.Id)$(if ([string]::IsNullOrEmpty($Role.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($Role.AdministrativeUnitReference.DisplayName)" }))`n                          " -NoNewline
+                Write-Host "$($RoleDefinition.DisplayName) (Id: $($RoleDefinition.Id)$(if ([string]::IsNullOrEmpty($Role.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($Role.AdministrativeUnit.DisplayName)" }))`n                          " -NoNewline
                 Write-Host $RoleDefinition.Description -ForegroundColor DarkGray
                 continue
             }
 
             Write-Host "                (Missing) " -NoNewline -ForegroundColor White
-            Write-Host "$($RoleDefinition.DisplayName) (Id: $($RoleDefinition.Id)$(if ([string]::IsNullOrEmpty($Role.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($Role.AdministrativeUnitReference.DisplayName)" }))`n                          " -NoNewline
+            Write-Host "$($RoleDefinition.DisplayName) (Id: $($RoleDefinition.Id)$(if ([string]::IsNullOrEmpty($Role.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($Role.AdministrativeUnit.DisplayName)" }))`n                          " -NoNewline
             Write-Host $RoleDefinition.Description -ForegroundColor DarkGray
 
             if ($PSCmdlet.ShouldProcess(
@@ -704,13 +704,13 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
                 }
                 catch {
                     Write-Host "                (ERROR)   " -NoNewline -ForegroundColor Red
-                    Write-Host "$($RoleDefinition.DisplayName) (Id: $($RoleDefinition.Id)$(if ([string]::IsNullOrEmpty($Role.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($Role.AdministrativeUnitReference.DisplayName)" }))"
+                    Write-Host "$($RoleDefinition.DisplayName) (Id: $($RoleDefinition.Id)$(if ([string]::IsNullOrEmpty($Role.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($Role.AdministrativeUnit.DisplayName)" }))"
                     Write-Error "$_" -ErrorAction Stop
                     exit
                 }
 
                 Write-Host "                (Ok)      " -NoNewline -ForegroundColor Green
-                Write-Host "$($RoleDefinition.DisplayName) (Id: $($RoleDefinition.Id)$(if ([string]::IsNullOrEmpty($Role.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($Role.AdministrativeUnitReference.DisplayName)" }))"
+                Write-Host "$($RoleDefinition.DisplayName) (Id: $($RoleDefinition.Id)$(if ([string]::IsNullOrEmpty($Role.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($Role.AdministrativeUnit.DisplayName)" }))"
             }
         }
     }

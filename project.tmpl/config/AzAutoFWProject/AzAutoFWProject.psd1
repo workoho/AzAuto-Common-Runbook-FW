@@ -239,12 +239,12 @@
             # }
 
             # 'ExampleWithAdminUnit' = @{
-            #     AdministrativeUnitReference = 'AdministrativeUnit.RestrictedManagementExample'   # reference to the Administrative Unit defined above to add the group
-            #     DisplayName                 = 'CORP-Sensitive-Group'
-            #     Id                          = '' # After creation, you can set the ID here for future reference to be independent of DisplayName changes.
-            #     Description                 = 'This is an example for a sensitive security group that is protected by a management-restricted administrative unit.'
-            #     SecurityEnabled             = $true
-            #     MailEnabled                 = $false
+            #     AdministrativeUnitReferenceTo = 'AdministrativeUnit.RestrictedManagementExample'   # reference to the Administrative Unit defined above to add the group
+            #     DisplayName                   = 'CORP-Sensitive-Group'
+            #     Id                            = '' # After creation, you can set the ID here for future reference to be independent of DisplayName changes.
+            #     Description                   = 'This is an example for a sensitive security group that is protected by a management-restricted administrative unit.'
+            #     SecurityEnabled               = $true
+            #     MailEnabled                   = $false
             # }
 
             # 'ExampleWithDynamicLicensing' = @{

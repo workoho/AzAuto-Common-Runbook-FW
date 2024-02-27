@@ -151,30 +151,30 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
             $configValue.MembershipRule = [System.Text.RegularExpressions.Regex]::Replace($configValue.MembershipRule, "^[\s]{0,$minLeadingWhitespaces}", '', 'Multiline')
         }
 
-        if ($null -ne $configValue.AdministrativeUnitReference -and $configValue.AdministrativeUnitReference -is [hashtable]) {
-            if ([string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.DisplayName) -and [string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.Id)) {
+        if ($null -ne $configValue.AdministrativeUnit -and $configValue.AdministrativeUnit -is [hashtable]) {
+            if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.DisplayName) -and [string]::IsNullOrEmpty($configValue.AdministrativeUnit.Id)) {
                 Write-Error "Administrative unit reference for group '$($configValue.DisplayName)' must have a 'DisplayName' or 'Id' property in configuration." -ErrorAction Stop
                 return
             }
             try {
                 $adminUnit = $null
-                if ([string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.Id)) {
-                    $adminUnit = Get-MgBetaAdministrativeUnit -Filter "displayName eq '$($configValue.AdministrativeUnitReference.DisplayName)'" -ErrorAction Stop
+                if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.Id)) {
+                    $adminUnit = Get-MgBetaAdministrativeUnit -Filter "displayName eq '$($configValue.AdministrativeUnit.DisplayName)'" -ErrorAction Stop
                 }
                 else {
-                    $adminUnit = Get-MgBetaAdministrativeUnit -AdministrativeUnitId $configValue.AdministrativeUnitReference.Id -ErrorAction Stop
+                    $adminUnit = Get-MgBetaAdministrativeUnit -AdministrativeUnitId $configValue.AdministrativeUnit.Id -ErrorAction Stop
                 }
                 if ($adminUnit.Count -gt 1) {
                     Write-Host "    (ERROR)   " -NoNewline -ForegroundColor Red
-                    Write-Host "$($configValue.DisplayName) (Id: n/a$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnitReference.DisplayName)" }))"
-                    Write-Error "Multiple administrative units found with the same name '$($configValue.AdministrativeUnitReference.DisplayName)'. Please ensure that the administrative unit names are unique, or add Object ID to configuration." -ErrorAction Stop
+                    Write-Host "$($configValue.DisplayName) (Id: n/a$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnit.DisplayName)" }))"
+                    Write-Error "Multiple administrative units found with the same name '$($configValue.AdministrativeUnit.DisplayName)'. Please ensure that the administrative unit names are unique, or add Object ID to configuration." -ErrorAction Stop
                     return
                 }
-                $configValue.AdministrativeUnitReference = $adminUnit
-                Write-Verbose " Found Administrative Unit for group: $($configValue.AdministrativeUnitReference.DisplayName) ($($configValue.AdministrativeUnitReference.Id))"
+                $configValue.AdministrativeUnit = $adminUnit
+                Write-Verbose " Found Administrative Unit for group: $($configValue.AdministrativeUnit.DisplayName) ($($configValue.AdministrativeUnit.Id))"
             }
             catch {
-                Write-Error "Administrative unit '$($configValue.AdministrativeUnitReference.DisplayName)' for group '$($configValue.DisplayName)' not found." -ErrorAction Stop
+                Write-Error "Administrative unit '$($configValue.AdministrativeUnit.DisplayName)' for group '$($configValue.DisplayName)' not found." -ErrorAction Stop
                 return
             }
         }
@@ -182,16 +182,16 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
         if ($null -eq $currentValue) {
             Write-Host "    (Missing) " -NoNewline -ForegroundColor White
             Write-Host "$($configValue.DisplayName)" -NoNewline
-            Write-Host "$($configValue.DisplayName) (Id: n/a$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnitReference.DisplayName)" }))" -NoNewline
+            Write-Host "$($configValue.DisplayName) (Id: n/a$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnit.DisplayName)" }))" -NoNewline
             Write-Host $(if ([string]::IsNullOrEmpty($configValue.Description)) { '' } else { "`n              $($configValue.Description)" }) -ForegroundColor DarkGray
 
             if ($PSCmdlet.ShouldProcess(
-                    "Create Group '$($configValue.DisplayName)' in $(if ($null -ne $configValue.AdministrativeUnitReference -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.Id)) {"administrative unit '$($configValue.AdministrativeUnitReference.DisplayName)' of "})tenant $($config.local.AutomationAccount.TenantId) ?",
-                    "Do you confirm to create Group '$($configValue.DisplayName)' in $(if ($null -ne $configValue.AdministrativeUnitReference -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.Id)) {"administrative unit '$($configValue.AdministrativeUnitReference.DisplayName)' of "})tenant $($config.local.AutomationAccount.TenantId) ?",
+                    "Create Group '$($configValue.DisplayName)' in $(if ($null -ne $configValue.AdministrativeUnit -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnit.Id)) {"administrative unit '$($configValue.AdministrativeUnit.DisplayName)' of "})tenant $($config.local.AutomationAccount.TenantId) ?",
+                    "Do you confirm to create Group '$($configValue.DisplayName)' in $(if ($null -ne $configValue.AdministrativeUnit -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnit.Id)) {"administrative unit '$($configValue.AdministrativeUnit.DisplayName)' of "})tenant $($config.local.AutomationAccount.TenantId) ?",
                     "Create Groups in tenant $($config.local.AutomationAccount.TenantId)"
                 )) {
 
-                if ($null -ne $configValue.AdministrativeUnitReference -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.Id)) {
+                if ($null -ne $configValue.AdministrativeUnit -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnit.Id)) {
                     #region Connect to Microsoft Graph
                     try {
                         Push-Location
@@ -202,7 +202,7 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                                 'Group.ReadWrite.All'
                             )
                         }
-                        if ($configValue.AdministrativeUnitReference.IsMemberManagementRestricted) { $connectParams.Scopes += 'Directory.Write.Restricted' }
+                        if ($configValue.AdministrativeUnit.IsMemberManagementRestricted) { $connectParams.Scopes += 'Directory.Write.Restricted' }
                         if (-not $ConfirmedMgPermissionPrivileged) { .\Common_0001__Connect-MgGraph.ps1 @connectParams; $ConfirmedMgPermissionPrivileged = $true }
                     }
                     catch {
@@ -221,12 +221,12 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                         $confirmParams = @{
                             AllowGlobalAdministratorInAzureAutomation         = $true
                             AllowPrivilegedRoleAdministratorInAzureAutomation = $true
-                            AllowSuperseededRoleWithDirectoryScope            = if ($configValue.AdministrativeUnitReference.IsMemberManagementRestricted) { $false } else { $true }
+                            AllowSuperseededRoleWithDirectoryScope            = if ($configValue.AdministrativeUnit.IsMemberManagementRestricted) { $false } else { $true }
                             Roles                                             = @(
                                 @{
                                     DisplayName      = 'Groups Administrator'
                                     TemplateId       = 'fdd7a751-b60b-444a-984c-02652fe8fa1c'
-                                    DirectoryScopeId = "/administrativeUnits/$($configValue.AdministrativeUnitReference.Id)"
+                                    DirectoryScopeId = "/administrativeUnits/$($configValue.AdministrativeUnit.Id)"
                                 }
                             )
                         }
@@ -234,7 +234,7 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                         $null = ./Common_0003__Confirm-MgDirectoryRoleActiveAssignment.ps1 @confirmParams
                     }
                     catch {
-                        Write-Error "Insufficent Microsoft Entra permissions: $(if ($configValue.AdministrativeUnitReference.IsMemberManagementRestricted) {'Explicit'} else {'At lest'}) 'Groups Administrator' directory role with scope to administrative unit '$($configValue.AdministrativeUnitReference.DisplayName)' is required to setup groups in Microsoft Entra." -ErrorAction Stop
+                        Write-Error "Insufficent Microsoft Entra permissions: $(if ($configValue.AdministrativeUnit.IsMemberManagementRestricted) {'Explicit'} else {'At lest'}) 'Groups Administrator' directory role with scope to administrative unit '$($configValue.AdministrativeUnit.DisplayName)' is required to setup groups in Microsoft Entra." -ErrorAction Stop
                         exit
                     }
                     finally {
@@ -352,8 +352,8 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                         OutputType = 'PSObject'
                         Method     = 'POST'
                         Uri        = $(
-                            if ($null -ne $configValue.AdministrativeUnitReference -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.Id)) {
-                                "https://graph.microsoft.com/v1.0/directory/administrativeUnits/$($configValue.AdministrativeUnitReference.Id)/members"
+                            if ($null -ne $configValue.AdministrativeUnit -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnit.Id)) {
+                                "https://graph.microsoft.com/v1.0/directory/administrativeUnits/$($configValue.AdministrativeUnit.Id)/members"
                             }
                             else {
                                 "https://graph.microsoft.com/v1.0/groups"
@@ -361,7 +361,7 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                         )
                         Body       = $configValue.Clone()
                     }
-                    if ($null -ne $configValue.AdministrativeUnitReference -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.Id)) {
+                    if ($null -ne $configValue.AdministrativeUnit -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnit.Id)) {
                         $params.Body.'@odata.type' = '#Microsoft.Graph.Group'
                     }
                     if ([string]::IsNullOrEmpty($params.Body.MailNickname)) {
@@ -369,12 +369,12 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                         Write-Verbose " Property 'MailNickname' has been auto-generated: '$($params.Body.MailNickname)'."
                     }
                     $params.Body.Remove('Id')
-                    $params.Body.Remove('AdministrativeUnitReference')
+                    $params.Body.Remove('AdministrativeUnit')
                     $params.Body.Remove('InitialLicenseAssignment')
                     if ($commonBoundParameters) { $params += $commonBoundParameters }
                     $currentValue = Invoke-MgGraphRequest @params
                     Write-Host "    (Ok)      " -NoNewline -ForegroundColor Green
-                    Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnitReference.DisplayName)" }))"
+                    Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnit.DisplayName)" }))"
                 }
                 catch {
                     Write-Error "$_" -ErrorAction Stop
@@ -496,7 +496,7 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                 $currentValue.IsAssignableToRole -ne $configValue.IsAssignableToRole
             ) {
                 Write-Host "    (ERROR)   " -NoNewline -ForegroundColor Red
-                Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnitReference.DisplayName)" }))" -NoNewline
+                Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnit.DisplayName)" }))" -NoNewline
                 Write-Host $(if ([string]::IsNullOrEmpty($currentValue.Description)) { '' } else { "`n              $($currentValue.Description)" }) -ForegroundColor DarkGray
                 Write-Error "Group '$($currentValue.DisplayName)' must have property 'IsAssignableToRole' set to '$($configValue.IsAssignableToRole)'. This cannot be changed after the group is created." -ErrorAction Stop
                 return
@@ -507,7 +507,7 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                 $currentValue.Visibility -ne $configValue.Visibility
             ) {
                 Write-Host "    (ERROR)   " -NoNewline -ForegroundColor Red
-                Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnitReference.DisplayName)" }))" -NoNewline
+                Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnit.DisplayName)" }))" -NoNewline
                 Write-Host $(if ([string]::IsNullOrEmpty($currentValue.Description)) { '' } else { "`n              $($currentValue.Description)" }) -ForegroundColor DarkGray
                 Write-Error "Group '$($currentValue.DisplayName)' must have property 'Visibility' set to '$($configValue.Visibility)'. This cannot be changed after the group is created." -ErrorAction Stop
                 return
@@ -533,7 +533,7 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                 # If the property does not exist in $currentValue but exists in the hashtable, output a warning
                 elseif (
                     $null -ne $configValue.$key -and
-                    @( 'AdministrativeUnitReference', 'InitialLicenseAssignment' ) -notcontains $key
+                    @( 'AdministrativeUnit', 'InitialLicenseAssignment' ) -notcontains $key
                 ) {
                     Write-Warning "Property '$key' seems to be an invalid property for the group '$($currentValue.DisplayName)'."
                 }
@@ -541,12 +541,12 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
 
             if ($updateProperty.Count -gt 0) {
                 Write-Host "    (Update)  " -NoNewline -ForegroundColor Yellow
-                Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnitReference.DisplayName)" }))" -NoNewline
+                Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnit.DisplayName)" }))" -NoNewline
                 Write-Host $(if ([string]::IsNullOrEmpty($currentValue.Description)) { '' } else { "`n              $($currentValue.Description)" }) -ForegroundColor DarkGray
 
                 if ($PSCmdlet.ShouldProcess(
-                        "Update Group '$($configValue.DisplayName)' $(if($updateProperty.Count -eq 1) {'property'} else {'properties'}; ($updateProperty.Keys | ForEach-Object { "'$_'" }) -join ', ' ) in $(if ($null -ne $configValue.AdministrativeUnitReference -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.Id)) {"administrative unit '$($configValue.AdministrativeUnitReference.DisplayName)' of "})tenant $($config.local.AutomationAccount.TenantId) ?",
-                        "Do you confirm to update Group '$($configValue.DisplayName)' $(if($updateProperty.Count -eq 1) {'property'} else {'properties'}; ($updateProperty.Keys | ForEach-Object { "'$_'" }) -join ', ' ) in $(if ($null -ne $configValue.AdministrativeUnitReference -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.Id)) {"administrative unit '$($configValue.AdministrativeUnitReference.DisplayName)' of "})tenant $($config.local.AutomationAccount.TenantId) ?",
+                        "Update Group '$($configValue.DisplayName)' $(if($updateProperty.Count -eq 1) {'property'} else {'properties'}; ($updateProperty.Keys | ForEach-Object { "'$_'" }) -join ', ' ) in $(if ($null -ne $configValue.AdministrativeUnit -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnit.Id)) {"administrative unit '$($configValue.AdministrativeUnit.DisplayName)' of "})tenant $($config.local.AutomationAccount.TenantId) ?",
+                        "Do you confirm to update Group '$($configValue.DisplayName)' $(if($updateProperty.Count -eq 1) {'property'} else {'properties'}; ($updateProperty.Keys | ForEach-Object { "'$_'" }) -join ', ' ) in $(if ($null -ne $configValue.AdministrativeUnit -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnit.Id)) {"administrative unit '$($configValue.AdministrativeUnit.DisplayName)' of "})tenant $($config.local.AutomationAccount.TenantId) ?",
                         "Update Groups in tenant $($config.local.AutomationAccount.TenantId)"
                     )) {
 
@@ -608,11 +608,11 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                         if ($commonBoundParameters) { $params += $commonBoundParameters }
                         $currentValue = Invoke-MgGraphRequest @params
                         Write-Host "    (Ok)      " -NoNewline -ForegroundColor Green
-                        Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnitReference.DisplayName)" }))" -NoNewline
+                        Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnit.DisplayName)" }))" -NoNewline
                     }
                     catch {
                         Write-Host "    (ERROR)   " -NoNewline -ForegroundColor Red
-                        Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnitReference.DisplayName)" }))"
+                        Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnit.DisplayName)" }))"
                         Write-Error "$_" -ErrorAction Stop
                         return
                     }
@@ -622,7 +622,7 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
             }
 
             Write-Host "    (Ok)      " -NoNewline -ForegroundColor Green
-            Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnitReference.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnitReference.DisplayName)" }))" -NoNewline
+            Write-Host "$($currentValue.DisplayName) (Id: $($currentValue.Id)$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnit.DisplayName)" }))" -NoNewline
             Write-Host $(if ([string]::IsNullOrEmpty($currentValue.Description)) { '' } else { "`n              $($currentValue.Description)" }) -ForegroundColor DarkGray
         }
     }

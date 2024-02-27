@@ -194,12 +194,15 @@ function Resolve-References {
     )
 
     $keys = @($HashTable.Keys)
-    foreach ($key in $keys) {
+    :outer foreach ($key in $keys) {
         $value = $HashTable[$key]
 
-        if ($key -like '*Reference') {
+        if ($key -match '^(.+)ReferenceTo$') {
+            $HashTable.Remove($key)
+            $newKey = $matches[1]
+            Write-Verbose "Found target for reference $key and created new key $newKey"
+
             if ($value -is [string] -and $value -match '^[^.]+\..+$') {
-                Write-Verbose "Found reference candidate: $key"
                 $parts = $value.Split('.')
                 $target = $RootHashTable
                 foreach ($part in $parts) {
@@ -207,19 +210,17 @@ function Resolve-References {
                         $target = $target[$part]
                     }
                     else {
-                        $HashTable[$key] = $null
+                        $HashTable[$newKey] = $null
                         Write-Error "Key reference '$part' not found in configuration"
-                        return
+                        continue outer
                     }
                 }
-                $HashTable[$key] = $target
-                Write-Verbose "Found target and replaced value for: $key"
+                $HashTable[$newKey] = $target
             }
             elseif ($value -is [array]) {
                 $newArray = [System.Collections.ArrayList]::new()
                 foreach ($item in $value) {
                     if ($item -is [string] -and $item -match '^[^.]+\..+$') {
-                        Write-Verbose "Found reference candidate in '$key' array: $item"
                         $parts = $item.Split('.')
                         $target = $RootHashTable
                         foreach ($part in $parts) {
@@ -232,11 +233,6 @@ function Resolve-References {
                             }
                         }
                         [void] $newArray.Add($target)
-                        Write-Verbose "Found target and replaced value in '$key' array for: $item"
-                    }
-                    else {
-                        Write-Warning "Invalid reference candidate in '$key' array: $item"
-                        [void] $newArray.Add($item)
                     }
                 }
                 $HashTable[$key] = $newArray.ToArray()
