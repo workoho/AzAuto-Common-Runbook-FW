@@ -1,0 +1,224 @@
+name: Release Management
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: "refs/heads/main"
+
+      - name: Verify tag is on main branch
+        run: |
+          TAG_SHA=$(git rev-parse ${{ github.ref }})
+          if ! git branch --contains $TAG_SHA | grep -q 'main'; then
+            echo "Tag is not on main branch. Exiting."
+            exit 78
+          fi
+
+      - name: Install 7z
+        run: sudo apt-get install p7zip-full
+
+      - name: Set archive name
+        id: set-archive-name
+        run: |
+          echo "ARCHIVE_NAME=$(echo "${{ github.repository }}-${{ github.ref }}" | sed 's|refs/tags/||' | sed 's|/|-|g')" >> $GITHUB_ENV
+
+      - name: Create archive files
+        run: |
+          tar -czvf ../$ARCHIVE_NAME.tar.gz .
+          7z a ../$ARCHIVE_NAME.7z .
+        env:
+          ARCHIVE_NAME: ${{ env.ARCHIVE_NAME }}
+
+      - name: Generate release notes
+        id: release_notes
+        env:
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          $LAST_TAG = $(git tag -l 'v*' --sort=-v:refname | head -n 1)
+          $IS_PRERELEASE = if ($LAST_TAG -like "*-*") { $true } else { $false }
+          $LAST_TAG_COMMIT = $(git rev-list -n 1 $LAST_TAG)
+          $LAST_TAG_DATE = [DateTime]::Parse($(git log -1 --format=%ai $LAST_TAG))
+          Write-Verbose "Last tag: $LAST_TAG" -Verbose
+          Write-Verbose "Last tag commit: $LAST_TAG_COMMIT" -Verbose
+          Write-Verbose "Last tag date: $LAST_TAG_DATE" -Verbose
+
+          $TAG_COUNT = (git tag -l 'v*' | Measure-Object -Line).Lines
+          if ($IS_PRERELEASE) {
+              if ($TAG_COUNT -gt 1) {
+                  Write-Verbose 'This is a pre-release version with multiple tags.' -Verbose
+                  $PREVIOUS_TAG = $(git tag -l 'v*' --sort=-v:refname | head -n 2 | tail -n 1)
+                  $PREVIOUS_TAG_COMMIT = $(git rev-list -n 1 $PREVIOUS_TAG)
+                  $PREVIOUS_TAG_DATE = [DateTime]::Parse($(git log -1 --format=%ai $PREVIOUS_TAG))
+                  $PREVIOUS_TAG_NAME = $PREVIOUS_TAG
+              }
+              else {
+                  Write-Verbose 'This is a pre-release version with a single tag.' -Verbose
+                  $PREVIOUS_TAG_COMMIT = $(git rev-list --max-parents=0 HEAD)
+                  $PREVIOUS_TAG_DATE = [DateTime]::Parse($(git log -1 --format=%ai $PREVIOUS_TAG_COMMIT))
+                  $PREVIOUS_TAG_NAME = 'initial commit'
+              }
+          }
+          else {
+              Write-Verbose 'This is a release version.' -Verbose
+              $PREVIOUS_RELEASE_TAGS = $(git tag -l 'v*' --sort=-v:refname | grep -P '^(?:(\d+\.)+\d+)$')
+              if ($PREVIOUS_RELEASE_TAGS) {
+                  $PREVIOUS_TAG = $PREVIOUS_RELEASE_TAGS | head -n 1
+                  $PREVIOUS_TAG_COMMIT = $(git rev-list -n 1 $PREVIOUS_TAG)
+                  $PREVIOUS_TAG_DATE = [DateTime]::Parse($(git log -1 --format=%ai $PREVIOUS_TAG))
+                  $PREVIOUS_TAG_NAME = $PREVIOUS_TAG
+              }
+              else {
+                  $PREVIOUS_TAG_COMMIT = $(git rev-list --max-parents=0 HEAD)
+                  $PREVIOUS_TAG_DATE = [DateTime]::Parse($(git log -1 --format=%ai $PREVIOUS_TAG_COMMIT))
+                  $PREVIOUS_TAG_NAME = 'initial commit'
+              }
+          }
+          Write-Verbose "Previous tag: $PREVIOUS_TAG" -Verbose
+          Write-Verbose "Previous tag commit: $PREVIOUS_TAG_COMMIT" -Verbose
+          Write-Verbose "Previous tag date: $PREVIOUS_TAG_DATE" -Verbose
+          Write-Verbose "Previous tag name: $PREVIOUS_TAG_NAME" -Verbose
+
+          $gitLogArgs = "log", "--pretty=format:", "--name-only", "$PREVIOUS_TAG_COMMIT..$LAST_TAG_COMMIT"
+          $FILES_CHANGED = & git $gitLogArgs | Sort-Object | Get-Unique | Where-Object { Test-Path $_ }
+          Write-Verbose "Files changed between $PREVIOUS_TAG_NAME and ${LAST_TAG}: $FILES_CHANGED" -Verbose
+
+          $PS1_FILES_CHANGED = ($FILES_CHANGED | Where-Object { $_ -match '^Runbooks\/.+\.ps1$' } | Sort-Object) + ($FILES_CHANGED | Where-Object { $_ -match '\.ps1$' -and $_ -notmatch '^Runbooks\/' } | Sort-Object)
+          Write-Verbose "PowerShell scripts changed between $PREVIOUS_TAG_NAME and ${LAST_TAG}: $PS1_FILES_CHANGED" -Verbose
+
+          $OTHER_FILES_CHANGED = $FILES_CHANGED | Where-Object { $_ -notmatch '\.ps1$' } | Sort-Object
+          Write-Verbose "Other files changed between $PREVIOUS_TAG_NAME and ${LAST_TAG}: $OTHER_FILES_CHANGED" -Verbose
+
+          $RELEASE_NOTES = "A total of $($PS1_FILES_CHANGED.Length + $OTHER_FILES_CHANGED.Length) files were changed between $PREVIOUS_TAG_NAME and ${LAST_TAG}."
+          $processedRunbooks = $false
+
+          if ($PS1_FILES_CHANGED.Length -gt 0) {
+              foreach ($file in $PS1_FILES_CHANGED) {
+                  Write-Verbose "Processing $file" -Verbose
+                  if ($file -like 'Runbooks/*' -and !$processedRunbooks) {
+                      $RELEASE_NOTES += "`n`n## PowerShell Runbooks:`n"
+                      $processedRunbooks = $true
+                  }
+                  elseif ($file -notlike 'Runbooks/*' -and $processedRunbooks) {
+                      $RELEASE_NOTES += "`n`n## Other PowerShell scripts:`n"
+                      $processedRunbooks = $false
+                  }
+                  $SCRIPT_INFO = $($origErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Ignore'; Test-ScriptFileInfo -LiteralPath $file; $ErrorActionPreference = $origErrorActionPreference)
+                  $HAS_RELEASE_NOTES = $false
+                  if ($null -ne $SCRIPT_INFO -and ![string]::IsNullOrEmpty($SCRIPT_INFO.ReleaseNotes)) {
+                      Write-Verbose "   Found release notes for $file" -Verbose
+
+                      $releases = @()
+                      $SCRIPT_INFO.ReleaseNotes | ForEach-Object {
+                          if ($_ -match '^\s*(?:Version)? *[vV]?(?<version>[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?) *\(?(?<date>[0-9]{4}-[0-9]{2}-[0-9]{2})\)?.*$') {
+                              Write-Verbose "   Found release notes headline" -Verbose
+                              $hash = @{
+                                  Version     = if ($Matches.version) { $Matches.version } elseif (![string]::IsNullOrEmpty($SCRIPT_INFO.Version)) { $SCRIPT_INFO.Version }
+                                  Date        = $(try { ([DateTime]::Parse($(if ($Matches.date) { $Matches.date } else { & git log -1 --format=%ai -- $file }))).ToUniversalTime() } catch { $null })
+                                  Description = ''
+                              }
+                              $releases += $hash
+                          }
+                          elseif ($_ -match "^\s*- *(.+)") {
+                            Write-Verbose "   Found release notes content" -Verbose
+                            $releases[-1].Description += "- $($Matches[1])`n"
+                          }
+                          else {
+                              Write-Verbose "   Ignoring release notes line: $_" -Verbose
+                          }
+                      }
+
+                      $releases | Sort-Object -Property @{Expression = { if ($_.Version) { $_ } else { [DateTime]::MaxValue } }; Ascending = $false }, @{Expression = { if ($_.Date) { $_ } else { [DateTime]::MaxValue } }; Ascending = $false } | ForEach-Object {
+                          if (-not $_.Date) {
+                            Write-Verbose "   Missing date or description, skipping release notes" -Verbose
+                            continue
+                          }
+                          $_.Description = $_.Description.TrimEnd("`n")
+                          if ($_.Date.Date -ge $PREVIOUS_TAG_DATE.Date -and $_.Date.Date -le $LAST_TAG_DATE.Date) {
+                              Write-Verbose "   Adding release notes for $file" -Verbose
+                              if (!$HAS_RELEASE_NOTES) {
+                                  $RELEASE_NOTES += "`n`n#### [$($file -replace 'Runbooks/', '')](https://github.com/$($env:GITHUB_REPOSITORY)/blob/$($env:GITHUB_REF)/$file)`n"
+                                  $HAS_RELEASE_NOTES = $true
+                              }
+                              $RELEASE_NOTES += "`n##### __$(if ($_.Version) {"Script Version $($_.Version), "})$($_.Date.ToString('yyyy-MM-dd')):__`n$($_.Description)`n"
+                          } else {
+                              Write-Verbose "   Release note are outside of the release date range" -Verbose
+                          }
+                      }
+                  }
+                  if (!$HAS_RELEASE_NOTES) {
+                      $RELEASE_NOTES += "`n`n#### [$file](https://github.com/$($env:GITHUB_REPOSITORY)/blob/$($env:GITHUB_REF)/$file)`n*No release notes available.*"
+                  }
+              }
+          }
+          if ($OTHER_FILES_CHANGED.Length -gt 0) {
+              $RELEASE_NOTES += "`n`n## Other files:`n"
+              foreach ($file in $OTHER_FILES_CHANGED) {
+                  $RELEASE_NOTES += "`n[$file](https://github.com/$($env:GITHUB_REPOSITORY)/blob/$($env:GITHUB_REF)/$file)"
+              }
+          }
+          Write-Verbose $RELEASE_NOTES -Verbose
+          Set-Content -Path release_notes.txt -Value $RELEASE_NOTES
+        shell: pwsh
+
+      - name: Check if pre-release
+        id: prerelease
+        run: |
+          echo "RELEASE_NAME=$(echo "${{ github.ref }}" | sed 's|refs/tags/v||')" >> $GITHUB_ENV
+          if [[ "${{ github.ref }}" = *-* ]]; then
+            echo "PRERELEASE=true" >> $GITHUB_ENV
+            echo "DRAFT=false" >> $GITHUB_ENV
+          else 
+            echo "PRERELEASE=false" >> $GITHUB_ENV
+            echo "DRAFT=true" >> $GITHUB_ENV
+          fi
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NAME: ${{ env.RELEASE_NAME }}
+          PRERELEASE: ${{ env.PRERELEASE }}
+          DRAFT: ${{ env.DRAFT }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ env.RELEASE_NAME }}
+          body_path: release_notes.txt
+          draft: ${{ env.DRAFT }}
+          prerelease: ${{ env.PRERELEASE }}
+
+      - name: Upload 7z Release Asset
+        id: upload-7z-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARCHIVE_NAME: ${{ env.ARCHIVE_NAME }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ../${{ env.ARCHIVE_NAME }}.7z
+          asset_name: ${{ env.ARCHIVE_NAME }}.7z
+          asset_content_type: application/x-7z-compressed
+
+      - name: Upload tar.gz Release Asset
+        id: upload-targz-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARCHIVE_NAME: ${{ env.ARCHIVE_NAME }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ../${{ env.ARCHIVE_NAME }}.tar.gz
+          asset_name: ${{ env.ARCHIVE_NAME }}.tar.gz
+          asset_content_type: application/gzip
