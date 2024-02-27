@@ -127,7 +127,7 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
         if (-not [string]::IsNullOrEmpty($configValue.Id)) {
             if ($Group -and $Group -notcontains $configValue.Id) { return }
             Write-Verbose "Searching for group with ID '$($configValue.Id)'"
-            $currentValue = Get-MgGroup -Id $configValue.Id -ErrorAction SilentlyContinue
+            $currentValue = Get-MgGroup -GroupId $configValue.Id -ErrorAction SilentlyContinue
         }
         elseif (-not [string]::IsNullOrEmpty($configValue.DisplayName)) {
             if ($Group -and $Group -notcontains $configValue.DisplayName) { return }
