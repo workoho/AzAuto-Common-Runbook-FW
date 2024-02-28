@@ -310,7 +310,7 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
                 else {
                     $ServicePrincipal = Get-MgServicePrincipal -All -ConsistencyLevel eventual -Filter "ServicePrincipalType eq 'Application' and DisplayName eq '$($_.DisplayName)'"
                 }
-                Write-Host "`n            $($ServicePrincipal.DisplayName) (Id: $($ServicePrincipal.Id))"
+                Write-Host "`n            $($ServicePrincipal.DisplayName) (AppId: $($ServicePrincipal.AppId))"
                 $AppRoleAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $automationAccount.Identity.PrincipalId | Where-Object ResourceId -eq $ServicePrincipal.Id
                 $PermissionGrants = Get-MgOauth2PermissionGrant -All -Filter "ClientId eq '$($automationAccount.Identity.PrincipalId)' and ResourceId eq '$($ServicePrincipal.Id)'"
             }
@@ -395,7 +395,7 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
                         }
                         #endregion
 
-                        if ($AppRole.Id -in $highlyPrivilegedApplications) {
+                        if ($ServicePrincipal.AppId -in $highlyPrivilegedApplications) {
                             #region Required Microsoft Entra Directory Permissions Validation --------------
                             try {
                                 Push-Location
@@ -554,7 +554,7 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
                                 }
                                 #endregion
 
-                                if ($ResourceId -in $highlyPrivilegedApplications) {
+                                if ($ServicePrincipal.AppId -in $highlyPrivilegedApplications) {
                                     #region Required Microsoft Entra Directory Permissions Validation --------------
                                     try {
                                         Push-Location
