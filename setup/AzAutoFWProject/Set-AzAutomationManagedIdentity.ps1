@@ -291,8 +291,15 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
         Write-Host "`n        App Permissions:"
     }
 
+    $highlyPrivilegedApplications = @(
+        '00000003-0000-0000-c000-000000000000', # Microsoft Graph
+        '00000002-0000-0000-c000-000000000000', # Azure Active Directory Graph (deprecated)
+        '00000001-0000-0000-c000-000000000000'  # Microsoft Entra
+    )
     $ConfirmedMgPermission = $false
     $ConfirmedEntraPermission = $false
+    $ConfirmedEntraPermissionPrivileged = $false
+
     $SAMI.AppPermissions | & {
         process {
             try {
@@ -387,6 +394,34 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
                             Pop-Location
                         }
                         #endregion
+
+                        if ($AppRole.Id -in $highlyPrivilegedApplications) {
+                            #region Required Microsoft Entra Directory Permissions Validation --------------
+                            try {
+                                Push-Location
+                                Set-Location (Join-Path $config.Project.Directory 'Runbooks')
+                                $confirmParams = @{
+                                    AllowGlobalAdministratorInAzureAutomation         = $true
+                                    AllowPrivilegedRoleAdministratorInAzureAutomation = $true
+                                    Roles                                             = @(
+                                        @{
+                                            DisplayName = 'Privileged Role Administrator'
+                                            TemplateId  = 'e8611ab8-c189-46e8-94e1-60213ab1f814'
+                                        }
+                                    )
+                                }
+                                if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
+                                if (-not $ConfirmedEntraPermissionPrivileged) { $null = ./Common_0003__Confirm-MgDirectoryRoleActiveAssignment.ps1 @confirmParams; $ConfirmedEntraPermissionPrivileged = $true }
+                            }
+                            catch {
+                                Write-Error "Insufficent Microsoft Entra permissions: 'Privileged Role Administrator' directory role is required in addition to 'Cloud Application Administrator' to assign app role permissions for highly-privileged applications to the Automation Account." -ErrorAction Stop
+                                exit
+                            }
+                            finally {
+                                Pop-Location
+                            }
+                            #endregion
+                        }
 
                         try {
                             $params = @{
@@ -519,6 +554,34 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
                                 }
                                 #endregion
 
+                                if ($ResourceId -in $highlyPrivilegedApplications) {
+                                    #region Required Microsoft Entra Directory Permissions Validation --------------
+                                    try {
+                                        Push-Location
+                                        Set-Location (Join-Path $config.Project.Directory 'Runbooks')
+                                        $confirmParams = @{
+                                            AllowGlobalAdministratorInAzureAutomation         = $true
+                                            AllowPrivilegedRoleAdministratorInAzureAutomation = $true
+                                            Roles                                             = @(
+                                                @{
+                                                    DisplayName = 'Privileged Role Administrator'
+                                                    TemplateId  = 'e8611ab8-c189-46e8-94e1-60213ab1f814'
+                                                }
+                                            )
+                                        }
+                                        if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
+                                        if (-not $ConfirmedEntraPermissionPrivileged) { $null = ./Common_0003__Confirm-MgDirectoryRoleActiveAssignment.ps1 @confirmParams; $ConfirmedEntraPermissionPrivileged = $true }
+                                    }
+                                    catch {
+                                        Write-Error "Insufficent Microsoft Entra permissions: 'Privileged Role Administrator' directory role is required in addition to 'Cloud Application Administrator' to assign OAuth2 permissions for highly-privileged applications to the Automation Account." -ErrorAction Stop
+                                        exit
+                                    }
+                                    finally {
+                                        Pop-Location
+                                    }
+                                    #endregion
+                                }
+
                                 try {
                                     if ($PermissionGrant) {
                                         $params = @{
@@ -621,7 +684,8 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
                 if ($null -ne $Role.AdministrativeUnit.Id) {
                     $Role.DirectoryScopeId = "/administrativeUnits/$($Role.AdministrativeUnit.Id)"
                     Write-Verbose "Setting DirectoryScopeId to $($Role.DirectoryScopeId)."
-                } else {
+                }
+                else {
                     $Role.DirectoryScopeId = '/'
                 }
             }
@@ -679,7 +743,7 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
                         )
                     }
                     if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
-                    if (-not $ConfirmedEntraPermission) { $null = ./Common_0003__Confirm-MgDirectoryRoleActiveAssignment.ps1 @confirmParams; $ConfirmedEntraPermission = $true }
+                    if (-not $ConfirmedEntraPermissionPrivileged) { $null = ./Common_0003__Confirm-MgDirectoryRoleActiveAssignment.ps1 @confirmParams; $ConfirmedEntraPermissionPrivileged = $true }
                 }
                 catch {
                     Write-Error "Insufficent Microsoft Entra permissions: At least 'Privileged Role Administrator' directory role is required to assign directory roles to the Automation Account." -ErrorAction Stop
