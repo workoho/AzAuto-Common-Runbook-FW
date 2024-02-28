@@ -72,8 +72,11 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
     $AutomationVariables | & {
         process {
             if (($null -ne $script:Variable) -and ($_.Name -notin $script:Variable)) { return }
-            if ($_.Value.GetType().Name -ne 'String') {
-                Write-Verbose "[COMMON]: - SKIPPING $($_.Name) because it is not a String but '$($_.GetType().Name)'"
+            if (
+                $_.Value.GetType().Name -ne 'String' -and
+                $_.Value.GetType().Name -ne 'Boolean'
+            ) {
+                Write-Verbose "[COMMON]: - SKIPPING $($_.Name) because it is not a String or Boolean but '$($_.Value.GetType().Name)'"
                 return
             }
             elseif ([string]::IsNullOrEmpty($_.Value)) {
@@ -81,7 +84,7 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                 return
             }
             Write-Verbose "[COMMON]: - Setting `$env:$($_.Name)"
-            [Environment]::SetEnvironmentVariable($_.Name, $_.Value)
+            [Environment]::SetEnvironmentVariable($_.Name, [string]$_.Value)
         }
     }
 }

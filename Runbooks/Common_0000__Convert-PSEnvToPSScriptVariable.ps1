@@ -97,11 +97,12 @@ $Variable | & {
             return
         }
 
-        if (
-            (-Not $_.Regex) -and
-            (($params.Value -ne $false) -and ($params.Value -ne $true))
-        ) {
-            if ($_.ContainsKey('defaultValue')) {
+        if (-Not $_.Regex) {
+            if ([bool]::TryParse($params.Value, [ref]$null)) {
+                $params.Value = [bool]::Parse($params.Value)
+                Write-Verbose "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Value converted to boolean"
+            }
+            elseif ($_.ContainsKey('defaultValue')) {
                 $params.Value = $_.defaultValue
                 Write-Warning "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Value does not seem to be a boolean, using built-in default value"
             }
