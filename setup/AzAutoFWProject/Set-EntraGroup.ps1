@@ -572,29 +572,58 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                     #endregion
 
                     #region Required Microsoft Entra Directory Permissions Validation --------------
-                    try {
-                        Push-Location
-                        Set-Location (Join-Path $config.Project.Directory 'Runbooks')
-                        $confirmParams = @{
-                            AllowGlobalAdministratorInAzureAutomation         = $true
-                            AllowPrivilegedRoleAdministratorInAzureAutomation = $true
-                            Roles                                             = @(
-                                @{
-                                    DisplayName      = 'Groups Administrator'
-                                    TemplateId       = 'fdd7a751-b60b-444a-984c-02652fe8fa1c'
-                                    DirectoryScopeId = '/'
-                                }
-                            )
+                    if ($null -ne $configValue.AdministrativeUnit -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnit.Id)) {
+                        try {
+                            Push-Location
+                            Set-Location (Join-Path $config.Project.Directory 'Runbooks')
+                            $confirmParams = @{
+                                AllowGlobalAdministratorInAzureAutomation         = $true
+                                AllowPrivilegedRoleAdministratorInAzureAutomation = $true
+                                AllowSuperseededRoleWithDirectoryScope            = if ($configValue.AdministrativeUnit.IsMemberManagementRestricted) { $false } else { $true }
+                                Roles                                             = @(
+                                    @{
+                                        DisplayName      = 'Groups Administrator'
+                                        TemplateId       = 'fdd7a751-b60b-444a-984c-02652fe8fa1c'
+                                        DirectoryScopeId = "/administrativeUnits/$($configValue.AdministrativeUnit.Id)"
+                                    }
+                                )
+                            }
+                            if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
+                            $null = ./Common_0003__Confirm-MgDirectoryRoleActiveAssignment.ps1 @confirmParams
                         }
-                        if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
-                        if (-not $ConfirmedEntraPermission) { $null = ./Common_0003__Confirm-MgDirectoryRoleActiveAssignment.ps1 @confirmParams; $ConfirmedEntraPermission = $true }
+                        catch {
+                            Write-Error "Insufficent Microsoft Entra permissions: $(if ($configValue.AdministrativeUnit.IsMemberManagementRestricted) {'Explicit'} else {'At lest'}) 'Groups Administrator' directory role with scope to administrative unit '$($configValue.AdministrativeUnit.DisplayName)' is required to setup groups in Microsoft Entra." -ErrorAction Stop
+                            exit
+                        }
+                        finally {
+                            Pop-Location
+                        }
                     }
-                    catch {
-                        Write-Error "Insufficent Microsoft Entra permissions: At least 'Groups Administrator' directory role is required to setup groups in Microsoft Entra." -ErrorAction Stop
-                        exit
-                    }
-                    finally {
-                        Pop-Location
+                    else {
+                        try {
+                            Push-Location
+                            Set-Location (Join-Path $config.Project.Directory 'Runbooks')
+                            $confirmParams = @{
+                                AllowGlobalAdministratorInAzureAutomation         = $true
+                                AllowPrivilegedRoleAdministratorInAzureAutomation = $true
+                                Roles                                             = @(
+                                    @{
+                                        DisplayName      = 'Groups Administrator'
+                                        TemplateId       = 'fdd7a751-b60b-444a-984c-02652fe8fa1c'
+                                        DirectoryScopeId = '/'
+                                    }
+                                )
+                            }
+                            if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
+                            if (-not $ConfirmedEntraPermission) { $null = ./Common_0003__Confirm-MgDirectoryRoleActiveAssignment.ps1 @confirmParams; $ConfirmedEntraPermission = $true }
+                        }
+                        catch {
+                            Write-Error "Insufficent Microsoft Entra permissions: At least 'Groups Administrator' directory role is required to setup groups in Microsoft Entra." -ErrorAction Stop
+                            exit
+                        }
+                        finally {
+                            Pop-Location
+                        }
                     }
                     #endregion
 
