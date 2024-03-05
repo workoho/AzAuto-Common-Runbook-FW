@@ -70,8 +70,9 @@ $params = if ($Param) {
 else {
     @{}
 }
-
-Write-Warning -Message ($params | Select-Object -Property Message).Message
+if (-not [string]::IsNullOrEmpty($params.Message)) {
+    Write-Warning -Message $($params.Message)
+}
 
 # Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
 return $params
