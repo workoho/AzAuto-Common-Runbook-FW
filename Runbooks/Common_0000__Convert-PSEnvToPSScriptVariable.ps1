@@ -97,12 +97,18 @@ $Variable | & {
             return
         }
 
-        if ($params.Value -eq '""' -or $params.Value -eq "''") {
+        if (
+            $params.Value.GetType().Name -eq 'String' -and
+            (
+                $params.Value -eq '""' -or
+                $params.Value -eq "''"
+            )
+        ) {
             Write-Verbose "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Value converted to empty string."
             $params.Value = [string]''
         }
 
-        if (-Not $_.Regex -and $params.Value.GetType().Name -ne 'Boolean') {
+        if (-Not $_.Regex -and $params.Value.GetType().Name -eq 'String') {
             if ($params.Value -eq 'True') {
                 $params.Value = $true
                 Write-Verbose "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Value converted to boolean True"
