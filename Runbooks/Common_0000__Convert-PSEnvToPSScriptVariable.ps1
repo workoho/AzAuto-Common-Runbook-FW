@@ -102,7 +102,7 @@ $Variable | & {
             $params.Value = [string]''
         }
 
-        if (-Not $_.Regex) {
+        if (-Not $_.Regex -and $params.Value.GetType().Name -ne 'Boolean') {
             if ($params.Value -eq 'True') {
                 $params.Value = $true
                 Write-Verbose "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Value converted to boolean True"
