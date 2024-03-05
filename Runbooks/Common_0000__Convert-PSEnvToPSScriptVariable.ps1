@@ -84,7 +84,7 @@ $Variable | & {
             $params.Value = Get-Variable -Name $_.respectScriptParameter -Scope $params.Scope -ValueOnly
             Write-Verbose "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Using value from script parameter $($_.respectScriptParameter)"
         }
-        elseif ([Environment]::GetEnvironmentVariable($_.sourceName)) {
+        elseif ($null -ne [Environment]::GetEnvironmentVariable($_.sourceName)) {
             $params.Value = (Get-ChildItem -Path "env:$($_.sourceName)").Value
             Write-Verbose "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Using value from `$env:$($_.sourceName)"
         }
