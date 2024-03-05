@@ -103,9 +103,13 @@ $Variable | & {
         }
 
         if (-Not $_.Regex) {
-            if ([bool]::TryParse($params.Value, [ref]$null)) {
-                $params.Value = [bool]::Parse($params.Value)
-                Write-Verbose "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Value converted to boolean"
+            if ($params.Value -eq 'True') {
+                $params.Value = $true
+                Write-Verbose "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Value converted to boolean True"
+            }
+            elseif ($params.Value -eq 'False') {
+                $params.Value = $false
+                Write-Verbose "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Value converted to boolean False"
             }
             elseif ($_.ContainsKey('defaultValue')) {
                 $params.Value = $_.defaultValue
