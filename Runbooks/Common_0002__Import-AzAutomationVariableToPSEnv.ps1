@@ -79,10 +79,6 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                 Write-Verbose "[COMMON]: - SKIPPING $($_.Name) because it is not a String or Boolean but '$($_.Value.GetType().Name)'"
                 return
             }
-            elseif ([string]::IsNullOrEmpty($_.Value)) {
-                Write-Verbose "[COMMON]: - SKIPPING $($_.Name) because it has NullOrEmpty value"
-                return
-            }
             Write-Verbose "[COMMON]: - Setting `$env:$($_.Name)"
             [Environment]::SetEnvironmentVariable($_.Name, [string]$_.Value)
         }
