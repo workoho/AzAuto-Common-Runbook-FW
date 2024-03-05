@@ -79,8 +79,14 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                 Write-Verbose "[COMMON]: - SKIPPING $($_.Name) because it is not a String or Boolean but '$($_.Value.GetType().Name)'"
                 return
             }
-            Write-Verbose "[COMMON]: - Setting `$env:$($_.Name)"
-            [Environment]::SetEnvironmentVariable($_.Name, [string]$_.Value)
+            if ([string]$_.Value -eq '') {
+                Write-Verbose "[COMMON]: - Setting `$env:$($_.Name) as empty string"
+                [Environment]::SetEnvironmentVariable($_.Name, "''")
+            }
+            else {
+                Write-Verbose "[COMMON]: - Setting `$env:$($_.Name)"
+                [Environment]::SetEnvironmentVariable($_.Name, [string]$_.Value)
+            }
         }
     }
 }

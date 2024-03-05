@@ -97,6 +97,11 @@ $Variable | & {
             return
         }
 
+        if ($params.Value -eq '""' -or $params.Value -eq "''") {
+            Write-Verbose "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Value converted to empty string."
+            $params.Value = [string]''
+        }
+
         if (-Not $_.Regex) {
             if ([bool]::TryParse($params.Value, [ref]$null)) {
                 $params.Value = [bool]::Parse($params.Value)
