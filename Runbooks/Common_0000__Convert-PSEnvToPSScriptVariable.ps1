@@ -98,6 +98,7 @@ $Variable | & {
         }
 
         if (
+            $null -ne $params.Value -and
             $params.Value.GetType().Name -eq 'String' -and
             (
                 $params.Value -eq '""' -or
@@ -108,7 +109,11 @@ $Variable | & {
             $params.Value = [string]''
         }
 
-        if (-Not $_.Regex -and $params.Value.GetType().Name -eq 'String') {
+        if (
+            -Not $_.Regex -and
+            $null -ne $params.Value -and
+            $params.Value.GetType().Name -eq 'String'
+        ) {
             if ($params.Value -eq 'True') {
                 $params.Value = $true
                 Write-Verbose "[COMMON]: - [$($_.sourceName) --> `$script:$($params.Name)] Value converted to boolean True"
