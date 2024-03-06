@@ -151,7 +151,7 @@ $config.AdministrativeUnit.GetEnumerator() | Sort-Object -Property { $_.Value.Di
             if ($currentValue.Count -gt 1) {
                 Write-Host "    (ERROR)   " -NoNewline -ForegroundColor Red
                 Write-Host "$($configValue.DisplayName)"
-                Write-Error "Multiple administrative units found with the same name '$($configValue.DisplayName)'. Please ensure that the administrative unit names are unique, or add Object ID to configuration." -ErrorAction Stop
+                Write-Error "Multiple administrative units found with the same name '$($configValue.DisplayName)'. Please ensure that the administrative unit names are unique, or add Object ID to configuration."
                 return
             }
             $currentValue = $currentValue[0]

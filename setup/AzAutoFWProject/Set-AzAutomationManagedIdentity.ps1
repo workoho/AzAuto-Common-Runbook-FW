@@ -668,7 +668,7 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
                     if ($adminUnit.Count -gt 1) {
                         Write-Host "    (ERROR)   " -NoNewline -ForegroundColor Red
                         Write-Host "$($RoleDefinition.DisplayName) (Id: $($RoleDefinition.Id)$(if ([string]::IsNullOrEmpty($Role.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($Role.AdministrativeUnit.DisplayName)" }))`n                          " -NoNewline
-                        Write-Error "Multiple administrative units found with the same name '$($Role.AdministrativeUnit.DisplayName)'. Please ensure that the administrative unit names are unique, or add Object ID to configuration." -ErrorAction Stop
+                        Write-Error "Multiple administrative units found with the same name '$($Role.AdministrativeUnit.DisplayName)'. Please ensure that the administrative unit names are unique, or add Object ID to configuration."
                         return
                     }
                     $Role.AdministrativeUnit = $adminUnit

@@ -167,7 +167,7 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                 if ($adminUnit.Count -gt 1) {
                     Write-Host "    (ERROR)   " -NoNewline -ForegroundColor Red
                     Write-Host "$($configValue.DisplayName) (Id: n/a$(if ([string]::IsNullOrEmpty($configValue.AdministrativeUnit.DisplayName)) { '' } else { ", Administrative Unit: $($configValue.AdministrativeUnit.DisplayName)" }))"
-                    Write-Error "Multiple administrative units found with the same name '$($configValue.AdministrativeUnit.DisplayName)'. Please ensure that the administrative unit names are unique, or add Object ID to configuration." -ErrorAction Stop
+                    Write-Error "Multiple administrative units found with the same name '$($configValue.AdministrativeUnit.DisplayName)'. Please ensure that the administrative unit names are unique, or add Object ID to configuration."
                     return
                 }
                 $configValue.AdministrativeUnit = $adminUnit
