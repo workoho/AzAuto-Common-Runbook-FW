@@ -76,17 +76,10 @@ Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFile
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
 #region [COMMON] ENVIRONMENT ---------------------------------------------------
+$env:AZURE_RM_WARN = 'false'
 ./Common_0000__Import-Module.ps1 -Modules @(
     @{ Name = 'Az.Accounts'; MinimumVersion = '2.8'; MaximumVersion = '2.65535' }
 ) 1> $null
-if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.JobId) {
-    try {
-        Enable-AzureRmAlias -ErrorAction SilentlyContinue -Verbose:$false 1> $null
-    }
-    catch {
-        #
-    }
-}
 #endregion ---------------------------------------------------------------------
 
 if (-Not (Get-AzContext)) {
