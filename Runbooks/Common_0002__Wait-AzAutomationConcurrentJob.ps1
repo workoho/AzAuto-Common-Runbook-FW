@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 0.0.1
+.VERSION 1.0.0
 .GUID 7c2ab51e-4863-474e-bfcf-6854d3c3a688
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,9 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 0.0.1 (2024-01-18)
-    - Draft release.
-    - Requires further testing.
+    Version 1.0.0 (2024-01-18)
+    - First release.
 #>
 
 <#
@@ -60,8 +59,11 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
 
         $DoLoop = $true
         $RetryCount = 1
-        $MaxRetry = 120
-        $WaitSec = 30
+        $MaxRetry = 300
+
+        $WaitMin = 25000
+        $WaitMax = 30000
+        $WaitStep = 100
 
         do {
             try {
@@ -96,7 +98,7 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
             else {
                 $RetryCount += 1
                 Write-Verbose "[COMMON]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Waiting for concurrent jobs: I am at rank $($currentJob.jobRanking) ..." -Verbose
-                Start-Sleep -Seconds $WaitSec
+                Start-Sleep -Milliseconds $((Get-Random -Minimum ($WaitMin / $WaitStep) -Maximum ($WaitMax / $WaitStep)) * $WaitStep)
             }
         } While ($DoLoop)
     }
