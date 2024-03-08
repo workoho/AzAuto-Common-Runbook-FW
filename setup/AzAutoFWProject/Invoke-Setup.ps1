@@ -102,21 +102,21 @@ try {
 
     if ($commonBoundParameters) {
         .\Set-AzAutomationAccount.ps1 @commonBoundParameters
-        .\Set-AzAutomationVariable.ps1 -VariableName $VariableName -UpdateVariableValue:$UpdateVariableValue @commonBoundParameters
         .\Set-AzAutomationRuntimeEnvironment.ps1 -RuntimeEnvironmentName $RuntimeEnvironmentName -RuntimeEnvironmentPackage $RuntimeEnvironmentPackage @commonBoundParameters
         .\Set-AzAutomationRunbook.ps1 -RunbookName $RunbookName -UpdateAndPublishRunbook:$UpdateAndPublishRunbook -PublishDraftRunbook:$PublishDraftRunbook -DiscardDraftRunbook:$DiscardDraftRunbook @commonBoundParameters
         .\Set-EntraAdministrativeUnit.ps1 -AdministrativeUnit $AdministrativeUnit @commonBoundParameters
         .\Set-EntraGroup.ps1 -Group $Group @commonBoundParameters
         .\Set-AzAutomationManagedIdentity.ps1 @commonBoundParameters
+        .\Set-AzAutomationVariable.ps1 -VariableName $VariableName -UpdateVariableValue:$UpdateVariableValue @commonBoundParameters
     }
     else {
         .\Set-AzAutomationAccount.ps1
-        .\Set-AzAutomationVariable.ps1 -VariableName $VariableName -UpdateVariableValue:$UpdateVariableValue
         .\Set-AzAutomationRuntimeEnvironment.ps1 -RuntimeEnvironmentName $RuntimeEnvironmentName -RuntimeEnvironmentPackage $RuntimeEnvironmentPackage
         .\Set-AzAutomationRunbook.ps1 -RunbookName $RunbookName -UpdateAndPublishRunbook:$UpdateAndPublishRunbook -PublishDraftRunbook:$PublishDraftRunbook -DiscardDraftRunbook:$DiscardDraftRunbook
         .\Set-EntraAdministrativeUnit.ps1 -AdministrativeUnit $AdministrativeUnit
         .\Set-EntraGroup.ps1 -Group $Group
         .\Set-AzAutomationManagedIdentity.ps1
+        .\Set-AzAutomationVariable.ps1 -VariableName $VariableName -UpdateVariableValue:$UpdateVariableValue
     }
 }
 catch {
