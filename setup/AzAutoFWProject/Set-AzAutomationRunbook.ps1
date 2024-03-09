@@ -61,6 +61,10 @@
     This example sets up and updates an Azure Automation Runbook named "MyRunbook" and publishes it.
 #>
 
+#Requires -Module @{ ModuleName='Az.Accounts'; ModuleVersion='2.16.0' }
+#Requires -Module @{ ModuleName='Az.Resources'; ModuleVersion='6.16.0' }
+#Requires -Module @{ ModuleName='Az.Automation'; ModuleVersion='1.10.0' }
+
 [CmdletBinding(
     SupportsShouldProcess,
     ConfirmImpact = 'High'

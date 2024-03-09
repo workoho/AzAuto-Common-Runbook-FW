@@ -24,6 +24,10 @@
     Placeholder for the Set-AzAutomationManagedIdentity function.
 #>
 
+#Requires -Module @{ ModuleName='Az.Accounts'; ModuleVersion='2.16.0' }
+#Requires -Module @{ ModuleName='Az.Resources'; ModuleVersion='6.16.0' }
+#Requires -Module @{ ModuleName='Az.Automation'; ModuleVersion='1.10.0' }
+
 [CmdletBinding(
     SupportsShouldProcess,
     ConfirmImpact = 'High'

@@ -27,6 +27,12 @@
     The name or ID of the group to be created or updated.
 #>
 
+#Requires -Module @{ ModuleName='Microsoft.Graph.Authentication'; ModuleVersion='2.15.0' }
+#Requires -Module @{ ModuleName='Microsoft.Graph.Users'; ModuleVersion='2.15.0' }
+#Requires -Module @{ ModuleName='Microsoft.Graph.Groups'; ModuleVersion='2.15.0' }
+#Requires -Module @{ ModuleName='Microsoft.Graph.Identity.Governance'; ModuleVersion='2.15.0' }
+#Requires -Module @{ ModuleName='Microsoft.Graph.Beta.Identity.DirectoryManagement'; ModuleVersion='2.15.0' }
+
 [CmdletBinding(
     SupportsShouldProcess,
     ConfirmImpact = 'High'
@@ -478,7 +484,7 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                     }
                     if ($commonBoundParameters) { $params += $commonBoundParameters }
                     $params.ErrorAction = 'Stop'
-                    # $null = Set-MgGroupLicense @params
+                    $null = Set-MgGroupLicense @params
                     Write-Host "                (Ok)      " -NoNewline -ForegroundColor Green
                     Write-Host "License assignment successfull"
                 }

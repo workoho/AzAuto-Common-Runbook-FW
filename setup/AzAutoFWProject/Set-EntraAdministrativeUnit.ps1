@@ -28,6 +28,10 @@
     The name or ID of the administrative unit to be created or updated.
 #>
 
+#Requires -Module @{ ModuleName='Microsoft.Graph.Authentication'; ModuleVersion='2.15.0' }
+#Requires -Module @{ ModuleName='Microsoft.Graph.Users'; ModuleVersion='2.15.0' }
+#Requires -Module @{ ModuleName='Microsoft.Graph.Identity.Governance'; ModuleVersion='2.15.0' }
+
 [CmdletBinding(
     SupportsShouldProcess,
     ConfirmImpact = 'High'

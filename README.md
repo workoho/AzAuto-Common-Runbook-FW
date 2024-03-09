@@ -89,7 +89,7 @@
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
     <li><a href="#maintainers">Maintainers</a></li>
-    <li><a href="#projects-using-this-framework">Projects using this framwework</a></li>
+    <li><a href="#projects-using-this-framework">Projects using this framework</a></li>
   </ol>
 </details>
 
@@ -246,8 +246,8 @@ Project Link: [https://github.com/Workoho/AzAuto-Common-Runbook-FW](https://gith
 
 
 
-<!-- Projects using this framwework -->
-## Projects using this framwework
+<!-- Projects using this framework -->
+## Projects using this framework
 
 * [Cloud Administration Tiering Security Model for Microsoft Entra](https://github.com/Workoho/Entra-Tiering-Security-Model)
 

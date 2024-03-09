@@ -32,6 +32,10 @@
     This example shows how to run the script to set up the Azure Automation Account for the AzAutoFWProject.
 #>
 
+#Requires -Module @{ ModuleName='Az.Accounts'; ModuleVersion='2.16.0' }
+#Requires -Module @{ ModuleName='Az.Resources'; ModuleVersion='6.16.0' }
+#Requires -Module @{ ModuleName='Az.Automation'; ModuleVersion='1.10.0' }
+
 [CmdletBinding(
     SupportsShouldProcess,
     ConfirmImpact = 'High'
