@@ -571,7 +571,7 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                             }
                             else {
                                 Write-Host "    (Available)               " -NoNewline -ForegroundColor Green
-                                Write-Host "$($_.Name)"
+                                Write-Host "$($_.Name) (Version: $($_.Version))"
                             }
                         }
                     }
