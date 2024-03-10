@@ -205,7 +205,7 @@ finally {
 #endregion
 
 $ConfirmedAzPermission = $false
-$config.AutomationRuntimeEnvironment.GetEnumerator() | & {
+$config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key -match '^PowerShell-|^Python-') { 0 } else { 1 }, $_.Key } | & {
     process {
         if ($RuntimeEnvironmentName -and ($RuntimeEnvironmentName -notcontains $_.Key)) { return }
         $runtimeEnvironment = $runtimeEnvironments | Where-Object Name -eq $_.Key
