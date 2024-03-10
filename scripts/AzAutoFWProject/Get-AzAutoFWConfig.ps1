@@ -206,7 +206,19 @@ function Resolve-References {
                 $parts = $value.Split('.')
                 $target = $RootHashTable
                 foreach ($part in $parts) {
-                    if ($target.ContainsKey($part)) {
+                    if ($part -match '^([^[]+)\[(\d+)\]$') {
+                        $arrayName = $matches[1]
+                        $index = [int]$matches[2]
+                        if ($target.ContainsKey($arrayName) -and $target[$arrayName] -is [array] -and $index -lt $target[$arrayName].Length) {
+                            $target = $target[$arrayName][$index]
+                        }
+                        else {
+                            $HashTable[$newKey] = $null
+                            Write-Error "Array reference '$part' not found in configuration"
+                            continue outer
+                        }
+                    }
+                    elseif ($target.ContainsKey($part)) {
                         $target = $target[$part]
                     }
                     else {
@@ -224,7 +236,18 @@ function Resolve-References {
                         $parts = $item.Split('.')
                         $target = $RootHashTable
                         foreach ($part in $parts) {
-                            if ($target.ContainsKey($part)) {
+                            if ($part -match '^([^[]+)\[(\d+)\]$') {
+                                $arrayName = $matches[1]
+                                $index = [int]$matches[2]
+                                if ($target.ContainsKey($arrayName) -and $target[$arrayName] -is [array] -and $index -lt $target[$arrayName].Length) {
+                                    $target = $target[$arrayName][$index]
+                                }
+                                else {
+                                    Write-Error "Array reference '$part' not found in configuration"
+                                    return
+                                }
+                            }
+                            elseif ($target.ContainsKey($part)) {
                                 $target = $target[$part]
                             }
                             else {
