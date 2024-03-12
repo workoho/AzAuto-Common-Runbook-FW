@@ -135,7 +135,14 @@ catch {
     exit
 }
 
-if (-Not $automationAccount) {
+if ($automationAccount) {
+    if ($null -eq $MyInvocation.PSScriptRoot -or $MyInvocation.ScriptName -like '*Invoke-Setup.ps1') {
+        Write-Host "Working on Azure Automation Account" -NoNewline
+        Write-Host " '$($automationAccount.AutomationAccountName)'" -ForegroundColor Green -NoNewline
+        Write-Host " in resource group '$($automationAccount.ResourceGroupName)'"
+    }
+}
+else {
     $commonBoundParameters.ErrorAction = 'Stop'
 
     if (-Not (Get-AzResourceGroup -Name $config.local.AutomationAccount.ResourceGroupName -ErrorAction SilentlyContinue)) {
@@ -256,6 +263,7 @@ if (-Not $automationAccount) {
         )) {
         try {
             $automationAccount = New-AzAutomationAccount @params @commonBoundParameters
+            Write-Host "Azure Automation Account '$($automationAccount.Name)' in resource group '$($automationAccount.ResourceGroupName)' created successfully." -ForegroundColor Green
         }
         catch {
             Write-Error "$_" -ErrorAction Stop
@@ -271,4 +279,8 @@ if (-Not $automationAccount) {
     }
 }
 
-return $automationAccount
+Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
+
+if ($null -ne $MyInvocation.PSScriptRoot -and $MyInvocation.ScriptName -notLike '*Invoke-Setup.ps1') {
+    return $automationAccount
+}

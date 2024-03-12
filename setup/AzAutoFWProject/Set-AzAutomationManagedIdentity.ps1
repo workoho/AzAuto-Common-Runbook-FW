@@ -783,3 +783,7 @@ if ($SAMI -and $automationAccount.Identity.PrincipalId) {
         }
     }
 }
+
+Write-Host "`nThe managed identity for the Azure Automation Account has been successfully configured.`n" -ForegroundColor White
+
+Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"

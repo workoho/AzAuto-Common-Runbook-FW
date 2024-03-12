@@ -1439,3 +1439,7 @@ catch {
 finally {
     Pop-Location
 }
+
+Write-Host "`nThe runbook file(s) have been successfully imported and published to the Azure Automation Account.`n" -ForegroundColor White
+
+Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"

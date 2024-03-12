@@ -662,3 +662,7 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
         }
     }
 }
+
+Write-Host "`nThe group setup has been completed." -ForegroundColor White
+
+Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"

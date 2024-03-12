@@ -608,3 +608,7 @@ $config.AdministrativeUnit.GetEnumerator() | Sort-Object -Property { $_.Value.Di
         }
     }
 }
+
+Write-Host "`n`nThe administrative unit setup has been completed." -ForegroundColor White
+
+Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"

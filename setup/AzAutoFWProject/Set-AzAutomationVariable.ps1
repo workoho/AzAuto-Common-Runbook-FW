@@ -338,3 +338,7 @@ $ConfirmedAzPermission = $false
         }
     }
 }
+
+Write-Host "`nThe automation variables have been successfully configured.`n" -ForegroundColor White
+
+Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"

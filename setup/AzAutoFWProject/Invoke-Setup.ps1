@@ -135,3 +135,7 @@ catch {
 finally {
     Pop-Location
 }
+
+Write-Host "`nThe setup of the Azure Automation account has been completed successfully.`n" -ForegroundColor Green
+
+Write-Verbose "---END of $((Get-Item $PSCommandPath).Name)---"

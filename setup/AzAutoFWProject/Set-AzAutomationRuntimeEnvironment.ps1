@@ -589,3 +589,7 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
         }
     }
 }
+
+Write-Host "`nThe runtime environment for the Azure Automation Account has been successfully configured.`n" -ForegroundColor White
+
+Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
