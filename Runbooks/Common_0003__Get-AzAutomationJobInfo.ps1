@@ -27,12 +27,18 @@
     Note that the script will only work when Common_0001__Connect-AzAccount.ps1 has been executed before as it relies on environment variables set by that script.
     Otherwise, the script will generate some dummy information, for example during local development.
 
+.PARAMETER StartedBy
+    If set to $true, the script will wait for the job activity log to appear and retrieve the user who started the job.
+    This is useful when you want to know who started the job, for example to send an email to the user.
+
 .NOTES
     This script is intended to be used as a child runbook in other runbooks and can not be run directly in Azure Automation for security reasons.
 #>
 
 [CmdletBinding()]
-Param()
+Param(
+    [bool]$StartedBy = $false
+)
 
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
 Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
@@ -46,8 +52,34 @@ $return = @{
 }
 
 if ($env:AZURE_AUTOMATION_RUNBOOK_Name) {
+    $return.JobId = $PSPrivateMetadata.JobId
     $return.CreationTime = (Get-Date $env:AZURE_AUTOMATION_RUNBOOK_JOB_CreationTime).ToUniversalTime()
     $return.StartTime = (Get-Date $env:AZURE_AUTOMATION_RUNBOOK_JOB_StartTime).ToUniversalTime()
+
+    if ($StartedBy) {
+        ./Common_0000__Import-Module.ps1 -Modules @(
+            @{ Name = 'Az.Monitor'; MinimumVersion = '3.0' }
+            @{ Name = 'Az.Resources'; MinimumVersion = '5.0' }
+        ) 1> $null
+        $StartTime = ($return.CreationTime).AddMinutes(-5)
+        $JobInfo = @{}
+        $TimeoutLoop = 0
+        while ($null -eq $return.StartedBy -and $TimeoutLoop -lt 9 ) {
+            Write-Verbose "[COMMON]: - Waiting for job activity log to appear ..."
+            $TimeoutLoop++
+            $JobAcvitityLogs = Get-AzActivityLog -ResourceGroupName $env:AZURE_AUTOMATION_ResourceGroupName -StartTime $StartTime | Where-Object { $_.Authorization.Action -eq 'Microsoft.Automation/automationAccounts/jobs/write' }
+            foreach ($Log in $JobAcvitityLogs) {
+                Write-Verbose "[COMMON]: - Checking log entry $($Log.EventTimestamp) for job ID $($Log.Properties.jobId) ..."
+                $JobResource = Get-AzResource -ResourceId $Log.ResourceId
+                if ($JobResource.Properties.jobId -eq $PSPrivateMetadata.JobId) {
+                    Write-Verbose "[COMMON]: - Found log entry for job ID $($Log.Properties.jobId) ..."
+                    $return.StartedBy = $Log.Caller
+                    break
+                }
+            }
+            if ($null -eq $return.StartedBy) { Start-Sleep 10 }
+        }
+    }
 
     $return.AutomationAccount = @{
         SubscriptionId    = $env:AZURE_AUTOMATION_SubscriptionId
