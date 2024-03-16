@@ -43,32 +43,63 @@
         # Configure your Azure Automation Runtime Environments and packages to be installed.
         AutomationRuntimeEnvironment = @{
 
-            # This is the System-generated Runtime Environment name.
-            # If you change it, a custom Runtime Environment will be created.
+
+            # This is the system-generated Runtime Environment name for PowerShell 5.1.
             'PowerShell-5.1' = @{
-                Description = ''
-                Runtime     = @{
+                Runtime  = @{
                     Language = 'PowerShell'
                     Version  = '5.1'
                 }
 
-                Packages    = @(
-                    @{
-                        # This is the defaultPackage and must always be set.
-                        Name      = 'Az'
-                        Version   = '8.0.0'
-                        IsDefault = $true
-                    }
+                Packages = @(
+                    # Due to a bug in Azure Automation Runtime Environments, we must install at least
+                    # one package via the old method into the default environment
+                    # (which is not writeable via GUI anymore, but old API's still make it accessibile for us)
                     @{
                         Name    = 'Microsoft.Graph.Authentication'
-                        Version = '2.13.1'
-                    }
-                    @{
-                        Name    = 'Microsoft.Graph.Identity.SignIns'
-                        Version = '2.13.1'
+                        Version = '2.15.0'
                     }
                 )
             }
+
+            # # This is the system-generated Runtime Environment name for PowerShell 7.2.
+            # 'PowerShell-7.2'          = @{
+            #     Description = ''
+            #     Runtime     = @{
+            #         Language = 'PowerShell'
+            #         Version  = '7.2'
+            #     }
+
+            #     Packages    = @(
+            #     )
+            # }
+
+            # # This is a custom Runtime Environment name for PowerShell 5.1 with Az 8.0.0 and additional modules.
+            # # This is currently required as Az 11.2.0 does not work correctly in PowerShell 5.1 in Azure Automation.
+            # 'AzAutoProject-V1'  = @{
+            #     Description = 'Runtime environment for Cloud Administrator Tiering Automation Runbooks with Az 8.0.0 and additional modules.'
+            #     Runtime     = @{
+            #         Language = 'PowerShell'
+            #         Version  = '5.1'    # We use PowerShell 5.1 here, as it is the only version that supports child runbooks at the time of writing.
+            #     }
+
+            #     Packages    = @(
+            #         @{
+            #             # This is the defaultPackage and must always be set.
+            #             Name      = 'Az'
+            #             Version   = '8.0.0'     # Note that version 11.2.0 currently does not work correctly in PowerShell 5.1 in Azure Automation
+            #             IsDefault = $true
+            #         }
+            #         @{
+            #             Name    = 'Microsoft.Graph.Authentication'
+            #             Version = '2.15.0'
+            #         }
+            #         @{
+            #             Name    = 'Microsoft.Graph.Identity.SignIns'
+            #             Version = '2.15.0'
+            #         }
+            #     )
+            # }
         }
 
         # Configure your Azure Automation Runbooks to be uploaded.
