@@ -5,8 +5,8 @@
 .COMPANYNAME Workoho GmbH
 .COPYRIGHT © 2024 Workoho GmbH
 .TAGS
-.LICENSEURI https://github.com/Workoho/AzAuto-Common-Runbook-FW/LICENSE.txt
-.PROJECTURI https://github.com/Workoho/AzAuto-Common-Runbook-FW
+.LICENSEURI https://github.com/workoho/AzAuto-Common-Runbook-FW/LICENSE.txt
+.PROJECTURI https://github.com/workoho/AzAuto-Common-Runbook-FW
 .ICONURI
 .EXTERNALMODULEDEPENDENCIES
 .REQUIREDSCRIPTS
@@ -98,12 +98,12 @@ if (
         $env:GITHUB_CODESPACE_TOKEN -or
         $env:AWS_CLOUD9_USER
     ) {
-        $params.UseDeviceAuthentication = $true
+        $params.UseDeviceCode = $true
     }
 
     try {
         Write-Information 'Connecting to Microsoft Graph ...' -InformationAction Continue
-        if ($params.UseDeviceAuthentication) {
+        if ($params.UseDeviceCode) {
             Connect-MgGraph @params
         }
         else {
@@ -130,7 +130,7 @@ if ($MissingScopes) {
     if ($Scopes) { $params.Scopes = $Scopes }
     try {
         Write-Information 'Missing scopes, re-connecting to Microsoft Graph ...' -InformationAction Continue
-        if ($params.UseDeviceAuthentication) {
+        if ($params.UseDeviceCode) {
             Connect-MgGraph @params
         }
         else {

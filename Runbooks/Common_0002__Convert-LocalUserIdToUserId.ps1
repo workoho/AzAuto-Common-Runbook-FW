@@ -5,8 +5,8 @@
 .COMPANYNAME Workoho GmbH
 .COPYRIGHT © 2024 Workoho GmbH
 .TAGS
-.LICENSEURI https://github.com/Workoho/AzAuto-Common-Runbook-FW/LICENSE.txt
-.PROJECTURI https://github.com/Workoho/AzAuto-Common-Runbook-FW
+.LICENSEURI https://github.com/workoho/AzAuto-Common-Runbook-FW/LICENSE.txt
+.PROJECTURI https://github.com/workoho/AzAuto-Common-Runbook-FW
 .ICONURI
 .EXTERNALMODULEDEPENDENCIES
 .REQUIREDSCRIPTS

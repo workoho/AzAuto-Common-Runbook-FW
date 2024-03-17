@@ -23,7 +23,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/Workoho/AzAuto-Common-Runbook-FW">
+  <a href="https://github.com/workoho/AzAuto-Common-Runbook-FW">
     <img src="images/logo.svg" alt="Logo" width="80" height="80">
   </a>
 
@@ -32,16 +32,16 @@
   <p align="center">
     A complete environment that helps you create, manage, and test your Azure Automation runbooks in a standardized and efficient way.
     <br />
-    <a href="https://github.com/Workoho/AzAuto-Common-Runbook-FW/wiki"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/workoho/AzAuto-Common-Runbook-FW/wiki"><strong>Explore the docs »</strong></a>
     <br />
 
 [![Open template in GitHub Codespaces](https://img.shields.io/badge/Open%20in-GitHub%20Codespaces-blue?logo=github)](https://codespaces.new/Workoho/AzAuto-Project.tmpl)
 &nbsp;&nbsp;&nbsp;
 [![View template online in Visual Studio Code](https://img.shields.io/badge/View%20Online%20in-Visual%20Studio%20Code-blue?logo=visual-studio-code)](https://vscode.dev/github/Workoho/AzAuto-Project.tmpl)
     <br />
-    <a href="https://github.com/Workoho/AzAuto-Common-Runbook-FW/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    <a href="https://github.com/workoho/AzAuto-Common-Runbook-FW/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     ·
-    <a href="https://github.com/Workoho/AzAuto-Common-Runbook-FW/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    <a href="https://github.com/workoho/AzAuto-Common-Runbook-FW/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
   </p>
 </div>
 
@@ -202,7 +202,7 @@ This is an example of how to list things you need to use the software and how to
 
 Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
 
-_For more examples, please refer to the [Wiki](https://github.com/Workoho/AzAuto-Common-Runbook-FW/wiki)_.
+_For more examples, please refer to the [Wiki](https://github.com/workoho/AzAuto-Common-Runbook-FW/wiki)_.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -240,7 +240,7 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 
 * Julian Pawlowski - [@jpawlowski](https://github.com/jpawlowski)
 
-Project Link: [https://github.com/Workoho/AzAuto-Common-Runbook-FW](https://github.com/Workoho/AzAuto-Common-Runbook-FW)
+Project Link: [https://github.com/workoho/AzAuto-Common-Runbook-FW](https://github.com/workoho/AzAuto-Common-Runbook-FW)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -249,7 +249,7 @@ Project Link: [https://github.com/Workoho/AzAuto-Common-Runbook-FW](https://gith
 <!-- Projects using this framework -->
 ## Projects using this framework
 
-* [Cloud Administration Tiering Security Model for Microsoft Entra](https://github.com/Workoho/Entra-Tiering-Security-Model)
+* [Cloud Administration Tiering Security Model for Microsoft Entra](https://github.com/workoho/Entra-Tiering-Security-Model)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -258,15 +258,15 @@ Project Link: [https://github.com/Workoho/AzAuto-Common-Runbook-FW](https://gith
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 [contributors-shield]: https://img.shields.io/github/contributors/Workoho/AzAuto-Common-Runbook-FW.svg?style=for-the-badge
-[contributors-url]: https://github.com/Workoho/AzAuto-Common-Runbook-FW/graphs/contributors
+[contributors-url]: https://github.com/workoho/AzAuto-Common-Runbook-FW/graphs/contributors
 [forks-shield]: https://img.shields.io/github/forks/Workoho/AzAuto-Common-Runbook-FW.svg?style=for-the-badge
-[forks-url]: https://github.com/Workoho/AzAuto-Common-Runbook-FW/network/members
+[forks-url]: https://github.com/workoho/AzAuto-Common-Runbook-FW/network/members
 [stars-shield]: https://img.shields.io/github/stars/Workoho/AzAuto-Common-Runbook-FW.svg?style=for-the-badge
-[stars-url]: https://github.com/Workoho/AzAuto-Common-Runbook-FW/stargazers
+[stars-url]: https://github.com/workoho/AzAuto-Common-Runbook-FW/stargazers
 [issues-shield]: https://img.shields.io/github/issues/Workoho/AzAuto-Common-Runbook-FW.svg?style=for-the-badge
-[issues-url]: https://github.com/Workoho/AzAuto-Common-Runbook-FW/issues
+[issues-url]: https://github.com/workoho/AzAuto-Common-Runbook-FW/issues
 [license-shield]: https://img.shields.io/github/license/Workoho/AzAuto-Common-Runbook-FW.svg?style=for-the-badge
-[license-url]: https://github.com/Workoho/AzAuto-Common-Runbook-FW/blob/master/LICENSE.txt
+[license-url]: https://github.com/workoho/AzAuto-Common-Runbook-FW/blob/master/LICENSE.txt
 [AzureAutomation]: https://img.shields.io/badge/Azure_Automation-1F4386?style=for-the-badge&logo=microsoftazure&logoColor=white
 [AzureAutomation-url]: https://learn.microsoft.com/azure/automation/
 [GitHubCodespaces]: https://img.shields.io/badge/GitHub_Codespaces-09091E?style=for-the-badge&logo=github&logoColor=white
