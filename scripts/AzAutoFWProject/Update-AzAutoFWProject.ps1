@@ -42,6 +42,16 @@ param(
 if ((Get-PSCallStack).Count -le 1) { Write-Error 'This script must be called from your project''s sibling Update-AzAutoFWProject.ps1. Exiting ...' -ErrorAction Stop; exit }
 Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
 
+Get-ChildItem -Path $configDir -File -Filter '*.template.*' -Recurse | & {
+    process {
+        $targetPath = $_.FullName -replace '\.template\.(.+)$', '.$1'
+        if (-not (Test-Path $targetPath)) {
+            Write-Verbose "Copying $_ to $targetPath"
+            Copy-Item -Path $_.FullName -Destination $targetPath -Force
+        }
+    }
+}
+
 $config = & (Join-Path (Get-Item $PSScriptRoot).Parent.Parent.FullName 'scripts/AzAutoFWProject/Get-AzAutoFWConfig.ps1')
 
 Write-Verbose "Framework directory: $($config.Project.Directory)"
@@ -279,21 +289,21 @@ $destFileList = [System.Collections.ArrayList]::new()
 $list = @(
     # Files that live in the user's project repository
     @{
-        source      = Join-Path $config.Project.Directory (Join-Path 'project.tmpl' 'config')
+        source      = Join-Path $config.Project.Directory (Join-Path 'project.template' 'config')
         destination = Join-Path $ChildConfig.Project.Directory 'config'
         filter      = @('*.psd1', '*.json')
         action      = 'copy'
         overwrite   = $true
     }
     @{
-        source      = Join-Path $config.Project.Directory (Join-Path 'project.tmpl' 'scripts')
+        source      = Join-Path $config.Project.Directory (Join-Path 'project.template' 'scripts')
         destination = Join-Path $ChildConfig.Project.Directory 'scripts'
         filter      = @('*.ps1', '*.py')
         action      = 'copy'
         overwrite   = $true
     }
     @{
-        source      = Join-Path $config.Project.Directory (Join-Path 'project.tmpl' 'setup')
+        source      = Join-Path $config.Project.Directory (Join-Path 'project.template' 'setup')
         destination = Join-Path $ChildConfig.Project.Directory 'setup'
         filter      = @('*.ps1', '*.py')
         action      = 'copy'
