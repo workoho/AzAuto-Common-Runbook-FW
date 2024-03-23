@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.1.0
 .GUID 710022f9-8ea6-49a9-8a1a-0714ff253fe0
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.1.0 (2024-03-23)
+    - Add -maxSpecial parameter.
 #>
 
 <#
@@ -38,6 +38,9 @@
 .PARAMETER minSpecial
     The minimum number of special characters required in the password. Default is 0.
 
+.PARAMETER maxSpecial
+    The maximum number of special characters allowed in the password. Default is unlimited.
+
 .OUTPUTS
     System.String
     The generated random password.
@@ -58,7 +61,8 @@ Param(
     [Int32]$minLower = 0,
     [Int32]$minUpper = 0,
     [Int32]$minNumber = 0,
-    [Int32]$minSpecial = 0
+    [Int32]$minSpecial = 0,
+    [Int32]$maxSpecial = -1
 )
 
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
@@ -102,6 +106,16 @@ $upperCharsNeeded = [Math]::Max($minUpper - $remainingChars, 0)
 $numberCharsNeeded = [Math]::Max($minNumber - $remainingChars, 0)
 $specialCharsNeeded = [Math]::Max($minSpecial - $remainingChars, 0)
 
+if ($maxSpecial -eq 0) {
+    $specialCharsNeeded = 0
+}
+elseif ($maxSpecial -le -1) {
+    $specialCharsNeeded = [Math]::Min($specialCharsNeeded, $maxSpecial)
+}
+
+# Initialize a counter for special characters
+$specialCharCount = 0
+
 # Generate the password
 $return = [System.Text.StringBuilder]::new()
 if ($lowerCharsNeeded -gt 0) {
@@ -115,10 +129,27 @@ if ($numberCharsNeeded -gt 0) {
 }
 if ($specialCharsNeeded -gt 0) {
     $null = $return.Append((Get-RandomCharacter -length $specialCharsNeeded -characters $specialChars))
+    $specialCharCount += $specialCharsNeeded
 }
+
 $remainingChars = $length - $return.Length
 if ($remainingChars -gt 0) {
-    $null = $return.Append((Get-RandomCharacter -length $remainingChars -characters ($lowerChars + $upperChars + $numberChars + $specialChars)))
+    while ($remainingChars -gt 0) {
+        if ($maxSpecial -le -1 -or $specialCharCount -lt $maxSpecial) {
+            $combinedChars = $lowerChars + $upperChars + $numberChars + $specialChars
+        }
+        else {
+            $combinedChars = $lowerChars + $upperChars + $numberChars
+        }
+
+        $randomChar = Get-RandomCharacter -length 1 -characters $combinedChars
+        $null = $return.Append($randomChar)
+
+        if ($specialChars.Contains($randomChar) -and ($maxSpecial -le -1 -or $specialCharCount -lt $maxSpecial)) {
+            $specialCharCount++
+        }
+        $remainingChars = $length - $return.Length
+    }
 }
 $return = Get-ScrambleString $return.ToString()
 
