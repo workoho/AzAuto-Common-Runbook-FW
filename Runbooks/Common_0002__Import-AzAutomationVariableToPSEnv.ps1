@@ -94,16 +94,16 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                     [Environment]::SetEnvironmentVariable($_.Name, 'False')
                 }
             }
-            elseif ([string]$_.Value.Length -gt 32767) {
+            elseif ([string]::new($_.Value).Length -gt 32767) {
                 Write-Verbose "[COMMON]: - SKIPPING $($_.Name) because it is too long"
             }
-            elseif ([string]$_.Value -eq '') {
+            elseif ([string]::new($_.Value) -eq '') {
                 Write-Verbose "[COMMON]: - Setting `$env:$($_.Name) as empty string"
                 [Environment]::SetEnvironmentVariable($_.Name, "''")
             }
             else {
                 Write-Verbose "[COMMON]: - Setting `$env:$($_.Name)"
-                [Environment]::SetEnvironmentVariable($_.Name, [string]$_.Value)
+                [Environment]::SetEnvironmentVariable($_.Name, [string]::new($_.Value))
             }
         }
     }
