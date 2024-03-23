@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.1.0
 .GUID 1dc765c0-4922-4142-a945-13206df25f13
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.1.0 (2024-03-23)
+    - Add import of Orchestrator.AssetManagement.Cmdlets
 #>
 
 <#
@@ -115,6 +115,21 @@ if (-Not (Get-AzContext)) {
 
         if ($params.Identity -eq $true) {
             Write-Verbose '[COMMON]: - Running in Azure Automation - Generating connection environment variables'
+
+            try {
+                if ($null -eq $global:PSModuleAutoloadingPreference) {
+                    $null = Get-AutomationVariable -Name DummyVar -ErrorAction SilentlyContinue
+                }
+                else {
+                    $AutoloadingPreference = $global:PSModuleAutoloadingPreference
+                    $global:PSModuleAutoloadingPreference = 'All'
+                    $null = Get-AutomationVariable -Name DummyVar -ErrorAction SilentlyContinue
+                    $global:PSModuleAutoloadingPreference = $AutoloadingPreference
+                }
+            }
+            catch {
+                # Do nothing. We just want to trigger auto import of Orchestrator.AssetManagement.Cmdlets
+            }
 
             if ($env:MG_PRINCIPAL_DISPLAYNAME) {
                 #region [COMMON] ENVIRONMENT ---------------------------------------------------

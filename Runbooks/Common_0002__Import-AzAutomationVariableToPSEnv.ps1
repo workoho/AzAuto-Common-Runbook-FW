@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.1.0
 .GUID 05a03d22-11a6-4114-8241-6e02a66d00fc
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.1.0 (2024-03-23)
+    - Add support for encrypted variables.
 #>
 
 <#
@@ -72,6 +72,12 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
     $AutomationVariables | & {
         process {
             if (($null -ne $script:Variable) -and ($_.Name -notin $script:Variable)) { return }
+            if ($_.Encrypted) {
+                # Get-AutomationVariable is an internal cmdlet that is not available in the Az module.
+                # It is part of the Automation internal module Orchestrator.AssetManagement.Cmdlets.
+                # https://learn.microsoft.com/en-us/azure/automation/shared-resources/modules#internal-cmdlets
+                $_.Value = Get-AutomationVariable -Name $_.Name
+            }
             if (
                 $_.Value.GetType().Name -ne 'String' -and
                 $_.Value.GetType().Name -ne 'Boolean'
@@ -87,6 +93,9 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                 else {
                     [Environment]::SetEnvironmentVariable($_.Name, 'False')
                 }
+            }
+            elseif ([string]$_.Value.Length -gt 32767) {
+                Write-Verbose "[COMMON]: - SKIPPING $($_.Name) because it is too long"
             }
             elseif ([string]$_.Value -eq '') {
                 Write-Verbose "[COMMON]: - Setting `$env:$($_.Name) as empty string"
