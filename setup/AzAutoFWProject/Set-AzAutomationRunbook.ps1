@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID ac0280b2-7ee2-46bf-8a32-c1277189fb60
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-03-09)
+    - Fix File version generation from Git branch name in case Git repository is in detached head state.
 #>
 
 <#
@@ -791,10 +791,23 @@ try {
                         }
 
                         if (-not $gitCache.Repository.$currentDirectory.Contains('Branch')) {
-                            $gitCache.Repository.$currentDirectory.Branch = git rev-parse --abbrev-ref HEAD 2>$null
+                            try {
+                                $tag = git describe --exact-match --tags HEAD 2>$null
+                                if ($tag -match '^v.+') {
+                                    $gitCache.Repository.$currentDirectory.Branch = $null
+                                } else {
+                                    throw
+                                }
+                            } catch {
+                                $gitCache.Repository.$currentDirectory.Branch = git rev-parse --abbrev-ref HEAD 2>$null
+                            }
                         }
-                        if ($gitCache.Repository.$currentDirectory.Branch -ne 'master' -and $gitCache.Repository.$currentDirectory.Branch -ne 'main') {
-                            $branches = git branch --contains $latestFileCommitHash 2>$null | ForEach-Object { $_.Replace('*', '').Trim() }
+                        if (
+                            -not [string]::IsNullOrEmpty($gitCache.Repository.$currentDirectory.Branch) -and
+                            $gitCache.Repository.$currentDirectory.Branch -ne 'master' -and
+                            $gitCache.Repository.$currentDirectory.Branch -ne 'main'
+                        ) {
+                            $branches = git branch --contains $latestFileCommitHash 2>$null | ForEach-Object { ($_ -replace '\*|\(.*\)', '').Trim() }
                             $branch = $null
                             if ($branches -contains $gitCache.Repository.$currentDirectory.Branch) {
                                 $branch = $gitCache.Repository.$currentDirectory.Branch
@@ -807,6 +820,7 @@ try {
                             }
 
                             if ($null -ne $branch) {
+                                Write-Verbose "  Adding branch '$branch' to versioning."
                                 if ($version -like '*-*') {
                                     $version += ".$branch"
                                 }
