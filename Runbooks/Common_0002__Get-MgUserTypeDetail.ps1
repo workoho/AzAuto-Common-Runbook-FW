@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID 66ac2035-7460-40e8-a4c2-aa7e0816f117
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-04-17)
+    - fix SMS sign in detection
 #>
 
 <#
@@ -27,6 +27,7 @@
     The resulting hash contains the following properties:
     - IsInternal: Indicates whether the user is an internal user.
     - IsEmailOTPAuthentication: Indicates whether the user is authenticated using email OTP.
+    - IsSMSOTPAuthentication: Indicates whether the user is authenticated using SMS OTP.
     - IsFacebookAccount: Indicates whether the user is authenticated using a Facebook account.
     - IsGoogleAccount: Indicates whether the user is authenticated using a Google account.
     - IsMicrosoftAccount: Indicates whether the user is authenticated using a Microsoft account.
@@ -60,6 +61,7 @@ Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFile
 $return = @{
     IsInternal               = $null
     IsEmailOTPAuthentication = $null
+    IsSMSOTPAuthentication   = $null
     IsFacebookAccount        = $null
     IsGoogleAccount          = $null
     IsMicrosoftAccount       = $null
@@ -78,6 +80,14 @@ if (-Not [string]::IsNullOrEmpty($UserObject.Identities)) {
     }
     else {
         $return.IsEmailOTPAuthentication = $false
+    }
+
+    if (($UserObject.Identities).Issuer -contains 'phone') {
+        Write-Verbose '[COMMON]: - IsSMSOTPAuthentication'
+        $return.IsSMSOTPAuthentication = $true
+    }
+    else {
+        $return.IsSMSOTPAuthentication = $false
     }
 
     if (($UserObject.Identities).Issuer -contains 'facebook.com') {
@@ -113,6 +123,7 @@ if (-Not [string]::IsNullOrEmpty($UserObject.Identities)) {
     }
 
     if (
+        $return.IsSMSOTPAuthentication -eq $false -and
         ($UserObject.Identities).SignInType -contains 'federated'
     ) {
         Write-Verbose '[COMMON]: - IsFederated'
