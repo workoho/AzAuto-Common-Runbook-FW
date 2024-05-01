@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID 21809011-e700-46e3-8743-c6dfde9b75ee
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,9 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-05-01)
+    - Fix encryption check for existing variables.
+    - Fix type check for existing variables.
 #>
 
 <#
@@ -191,29 +192,33 @@ $ConfirmedAzPermission = $false
             if (
                 (
                     $null -eq $_.Encrypted -and
-                    $SetVariable.Encrypted -eq $true
+                    "$($SetVariable.Encrypted)" -eq 'True'
                 ) -or
                 (
                     $null -ne $_.Encrypted -and
-                    $SetVariable.Encrypted -eq $_.Encrypted
+                    "$($SetVariable.Encrypted)" -ne "$($_.Encrypted)"
                 )
             ) {
                 Write-Host "    (ERROR)        " -NoNewline -ForegroundColor Red
                 Write-Host "$($SetVariable.Name)"
                 Write-Error $($SetVariable.Name + ': Variable encryption missmatch: Should be ' + $_.Encrypted + ', not ' + $SetVariable.Encrypted)
             }
-            elseif ($SetVariable.Value.PSObject.TypeNames[0] -ne $_.Value.PSObject.TypeNames[0]) {
+            elseif (
+                $null -ne $SetVariable.Value -and
+                $null -ne $_.Value -and
+                $SetVariable.Value.PSObject.TypeNames[0] -ne $_.Value.PSObject.TypeNames[0]
+            ) {
                 Write-Host "    (ERROR)        " -NoNewline -ForegroundColor Red
                 Write-Host "$($SetVariable.Name)"
-                Write-Error $($SetVariable.Name + ': Variable type missmatch: Should be ' + $_.Value.PSObject.TypeNames[0] + ', not ' + $SetVariable.Value.PSObject.TypeNames[0])
+                Write-Error $($SetVariable.Name + ': Variable type mismatch: Should be ' + $_.Value.PSObject.TypeNames[0] + ', not ' + $SetVariable.Value.PSObject.TypeNames[0])
             }
             elseif (
                 (
-                    -not $SetVariable.Encrypted -and
+                    $($SetVariable.Encrypted) -ne 'True' -and
                     -not [string]::IsNullOrEmpty($_.Value) -and
                     $SetVariable.Value -ne $_.Value
                 ) -or
-                ($SetVariable.Encrypted -and $UpdateVariableValue)
+                ("$($SetVariable.Encrypted)" -eq 'True' -and $UpdateVariableValue)
             ) {
                 if ($UpdateVariableValue) {
                     Write-Host "    (Update value) " -NoNewline -ForegroundColor White
