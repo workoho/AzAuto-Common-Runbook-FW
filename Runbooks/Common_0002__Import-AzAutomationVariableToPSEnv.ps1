@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.2.0
 .GUID 05a03d22-11a6-4114-8241-6e02a66d00fc
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-03-23)
-    - Add support for encrypted variables.
+    Version 1.2.0 (2024-05-01)
+    - Use Set-AzAutomationVariableAsPSEnv.ps1 to set Azure Automation variables as environment variables during local development.
 #>
 
 <#
@@ -109,7 +109,13 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
     }
 }
 else {
-    Write-Verbose '[COMMON]: - Not running in Azure Automation. Script environment variables must be set manually before local run.'
+    Write-Verbose "[COMMON]: - Running in local environment"
+    if (Test-Path -Path "$PSScriptRoot/../scripts/AzAutoFWProject/Set-AzAutomationVariableAsPSEnv.ps1") {
+        & "$PSScriptRoot/../scripts/AzAutoFWProject/Set-AzAutomationVariableAsPSEnv.ps1" -Variable $Variable -Verbose:$VerbosePreference
+    }
+    else {
+        Write-Warning "[COMMON]: - Set-AzAutomationVariableAsPSEnv.ps1 not found in $PSScriptRoot/../scripts/AzAutoFWProject"
+    }
 }
 
 Get-Variable | Where-Object { $StartupVariables -notcontains $_.Name } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
