@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID 3668222f-3d80-4793-9af5-9663f4147fd6
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-05-12)
+    - Fix device login for Microsoft Graph
 #>
 
 <#
@@ -157,7 +157,7 @@ else {
                 }
             }
             if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
-            $null = .\Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams
+            .\Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams
         }
         catch {
             Write-Error "Insufficent Azure permissions: At least 'Contributor' role for the subscription is required for initial creation of the resource group." -ErrorAction Stop
@@ -229,7 +229,7 @@ else {
             }
         }
         if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
-        $null = .\Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams
+        .\Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams
     }
     catch {
         Write-Error "Insufficent Azure permissions: At least 'Contributor' role for the resource group is required for initial creation of the Automation Account." -ErrorAction Stop
