@@ -57,7 +57,7 @@
                     # (which is not writeable via GUI anymore, but old API's still make it accessibile for us)
                     @{
                         Name    = 'Microsoft.Graph.Authentication'
-                        Version = '2.15.0'
+                        Version = '2.19.0'
                     }
                 )
             }
