@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.2.0
 .GUID 1dc765c0-4922-4142-a945-13206df25f13
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-03-23)
-    - Add import of Orchestrator.AssetManagement.Cmdlets
+    Version 1.2.0 (2024-05-14)
+    - Require version 2.8 of Az.Accounts module. This is currently required as Az 11.2.0 does not work correctly in PowerShell 5.1 in Azure Automation.
 #>
 
 <#
@@ -78,7 +78,7 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
 #region [COMMON] ENVIRONMENT ---------------------------------------------------
 $WarningPreference = 'SilentlyContinue'
 ./Common_0000__Import-Module.ps1 -Modules @(
-    @{ Name = 'Az.Accounts'; MinimumVersion = '2.8'; MaximumVersion = '2.65535' }
+    @{ Name = 'Az.Accounts'; RequiredVersion = '2.8' } # This is currently required as Az 11.2.0 does not work correctly in PowerShell 5.1 in Azure Automation.
 ) 1> $null
 $WarningPreference = 'Continue'
 #endregion ---------------------------------------------------------------------
