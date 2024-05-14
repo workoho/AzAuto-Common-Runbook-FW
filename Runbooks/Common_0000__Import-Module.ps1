@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.1.0
 .GUID 86fdceff-6855-4789-b621-9e12b25097f8
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.1.0 (2024-05-14)
+    - Add silent import of PackageManagement
 #>
 
 <#
@@ -62,8 +62,12 @@ $OrigGlobalVerbosePreference = $global:VerbosePreference
 $global:VerbosePreference = 'SilentlyContinue'
 
 try {
-    if (-Not (Get-Module -Name PowerShellGet)) {
+    if (
+        -Not (Get-Module -Name PackageManagement) -or
+        -Not (Get-Module -Name PowerShellGet)
+    ) {
         $Initialized = $false
+        Import-Module -Name PackageManagement -ErrorAction Stop
         Import-Module -Name PowerShellGet -ErrorAction Stop
     }
 }
