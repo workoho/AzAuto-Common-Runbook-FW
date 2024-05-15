@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID a775a4d9-9195-4410-a2bf-b1eeaa0da599
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-05-15)
+    - Allow parameter Variable array to contain only a single definition
 #>
 
 <#
@@ -55,7 +55,7 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
 Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
-$Variable | & {
+,@($Variable) | & {
     process {
         # Script parameters be of type array/collection and be processed during a loop,
         # and therefore updated multiple times
