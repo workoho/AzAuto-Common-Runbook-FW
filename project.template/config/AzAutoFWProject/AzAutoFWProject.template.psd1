@@ -45,7 +45,7 @@
 
 
             # This is the system-generated Runtime Environment name for PowerShell 5.1.
-            'PowerShell-5.1' = @{
+            'PowerShell-5.1'   = @{
                 Runtime  = @{
                     Language = 'PowerShell'
                     Version  = '5.1'
@@ -74,38 +74,38 @@
             #     )
             # }
 
-            # # This is a custom Runtime Environment name for PowerShell 5.1 with Az 8.0.0 and additional modules.
-            # # This is currently required as Az 11.2.0 does not work correctly in PowerShell 5.1 in Azure Automation.
-            # 'AzAutoProject-V1'  = @{
-            #     Description = 'Runtime environment for Cloud Administrator Tiering Automation Runbooks with Az 8.0.0 and additional modules.'
-            #     Runtime     = @{
-            #         Language = 'PowerShell'
-            #         Version  = '5.1'    # We use PowerShell 5.1 here, as it is the only version that supports child runbooks at the time of writing.
-            #     }
+            # This is a custom Runtime Environment name for PowerShell 5.1 with Az 8.0.0 and additional modules.
+            # This is currently required as Az 11.2.0 does not work correctly in PowerShell 5.1 in Azure Automation.
+            'AzAutoProject-V1' = @{
+                Description = 'Runtime environment for Cloud Administrator Tiering Automation Runbooks with Az 8.0.0 and additional modules.'
+                Runtime     = @{
+                    Language = 'PowerShell'
+                    Version  = '5.1'    # We use PowerShell 5.1 here, as it is the only version that supports child runbooks at the time of writing.
+                }
 
-            #     Packages    = @(
-            #         @{
-            #             # This is the defaultPackage and must always be set.
-            #             Name      = 'Az'
-            #             Version   = '8.0.0'     # Note that version 11.2.0 currently does not work correctly in PowerShell 5.1 in Azure Automation
-            #             IsDefault = $true
-            #         }
-            #         @{
-            #             Name    = 'Microsoft.Graph.Authentication'
-            #             Version = '2.15.0'
-            #         }
-            #         @{
-            #             Name    = 'Microsoft.Graph.Identity.SignIns'
-            #             Version = '2.15.0'
-            #         }
-            #     )
-            # }
+                Packages    = @(
+                    @{
+                        # This is the defaultPackage and must always be set.
+                        Name      = 'Az'
+                        Version   = '8.0.0'     # Note that version 11.2.0 currently does not work correctly in PowerShell 5.1 in Azure Automation
+                        IsDefault = $true
+                    }
+                    @{
+                        Name    = 'Microsoft.Graph.Authentication'
+                        Version = '2.19.0'
+                    }
+                    @{
+                        Name    = 'Microsoft.Graph.Identity.SignIns'
+                        Version = '2.19.0'
+                    }
+                )
+            }
         }
 
         # Configure your Azure Automation Runbooks to be uploaded.
         AutomationRunbook            = @{
             DefaultRuntimeEnvironment = @{
-                PowerShell = 'PowerShell-5.1'
+                PowerShell = 'AzAutoProject-V1'
             }
             Runbooks                  = @(
                 # # EXAMPLE:
@@ -121,44 +121,57 @@
 
             # For security reasons, you may also move this to the AzAutoFWProject.local.psd1 file.
             @{
-                Type       = 'SystemAssigned'  # 'SystemAssigned' or 'UserAssigned'
+                Type           = 'SystemAssigned'  # 'SystemAssigned' or 'UserAssigned'
 
                 # Azure role assignments for the Managed Identity.
-                AzureRoles = @{
+                AzureRoles     = @{
 
                     # Scope 'self' means the Automation Account itself.
                     'self' = @(
                         @{
                             DisplayName      = 'Reader'                                # 'Reader' is the minimum required role for the Automation Account
                             RoleDefinitionId = 'acdd72a7-3385-48ef-bd42-f606fba81ae7'  # RoleDefinitionId is optional, but recommended to ensure the correct role is assigned.
+                            Justification    = 'Let the Managed Identity read its own properties and access its own resources.'
                         }
+                        # @{
+                        #     DisplayName      = 'Automation Operator'                   # 'Automation Operator' is required to read sensitive information, like encrypted Automation Variables
+                        #     RoleDefinitionId = 'acdd72a7-3385-48ef-bd42-f606fba81ae7'  # RoleDefinitionId is optional, but recommended to ensure the correct role is assigned.
+                        #     Justification    = 'Let the Managed Identity read sensitive information, like encrypted Automation Variables.'
+                        # }
                     )
                 }
 
                 # # Directory role assignments for the Managed Identity.
                 # DirectoryRoles = @(
-                #     # Read Sign-in logs for User Account Administration (e.g. last login date, etc.)
                 #     @{
                 #         DisplayName    = 'Reports Reader'
-                #         RoleTemplateId = '4a5d8f65-41da-4de4-8968-e035b65339cf'     # RoleTemplateId is optional, but recommended to ensure the correct role is assigned.
+                #         RoleTemplateId = '4a5d8f65-41da-4de4-8968-e035b65339cf'                 # RoleTemplateId is optional, but recommended to ensure the correct role is assigned.
+                #         Justification  = 'Read Sign-in logs for User Account Administration (e.g. last login date, etc.)'
                 #     }
-                #
+
                 #     # User Account Administration
                 #     @{
                 #         DisplayName    = 'Exchange Recipient Administrator'
-                #         RoleTemplateId = '31392ffb-586c-42d1-9346-e59415a2cc4e'
+                #         RoleTemplateId = '31392ffb-586c-42d1-9346-e59415a2cc4e'                 # RoleTemplateId is optional, but recommended to ensure the correct role is assigned.
+                #         Justification  = 'Document some justification why this role is needed for the Managed Identity.'
                 #     }
                 #     @{
                 #         DisplayName    = 'Groups Administrator'
-                #         RoleTemplateId = 'fdd7a751-b60b-444a-984c-02652fe8fa1c'
+                #         RoleTemplateId = 'fdd7a751-b60b-444a-984c-02652fe8fa1c'                 # RoleTemplateId is optional, but recommended to ensure the correct role is assigned.
+                #         # AdministrativeUnitReferenceTo = 'AdministrativeUnit.Example'          # reference to the Administrative Unit defined below to add the role
+                #         Justification  = 'Document some justification why this role is needed for the Managed Identity.'
                 #     }
                 #     @{
                 #         DisplayName    = 'License Administrator'
-                #         RoleTemplateId = '4d6ac14f-3453-41d0-bef9-a3e0c569773a'
+                #         RoleTemplateId = '4d6ac14f-3453-41d0-bef9-a3e0c569773a'                 # RoleTemplateId is optional, but recommended to ensure the correct role is assigned.
+                #         # AdministrativeUnitReferenceTo = 'AdministrativeUnit.Example'          # reference to the Administrative Unit defined below to add the role
+                #         Justification  = 'Document some justification why this role is needed for the Managed Identity.'
                 #     }
                 #     @{
                 #         DisplayName    = 'User Administrator'
-                #         RoleTemplateId = 'fe930be7-5e62-47db-91af-98c3a49a38b1'
+                #         RoleTemplateId = 'fe930be7-5e62-47db-91af-98c3a49a38b1'                 # RoleTemplateId is optional, but recommended to ensure the correct role is assigned.
+                #         # AdministrativeUnitReferenceTo = 'AdministrativeUnit.Example'          # reference to the Administrative Unit defined below to add the role
+                #         Justification  = 'Document some justification why this role is needed for the Managed Identity.'
                 #     }
                 # )
 
