@@ -79,7 +79,7 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
 $WarningPreference = 'SilentlyContinue'
 if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.JobId) {
     ./Common_0000__Import-Module.ps1 -Modules @(
-        @{ Name = 'Az.Accounts'; RequiredVersion = '2.8.0' } # This is currently required as Az 11.2.0 does not work correctly in PowerShell 5.1 in Azure Automation.
+        @{ Name = 'Az.Accounts'; RequiredVersion = '2.8.0'; MaximumVersion = '2.9.65535' } # This is currently required as Az 11.2.0 does not work correctly in PowerShell 5.1 in Azure Automation.
     ) 1> $null
 } else {
     ./Common_0000__Import-Module.ps1 -Modules @(
