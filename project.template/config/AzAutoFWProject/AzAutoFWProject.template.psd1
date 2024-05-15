@@ -98,6 +98,10 @@
                         Name    = 'Microsoft.Graph.Identity.SignIns'
                         Version = '2.19.0'
                     }
+                    @{
+                        Name    = 'Microsoft.Graph.Applications'
+                        Version = '2.19.0'
+                    }
                 )
             }
         }
