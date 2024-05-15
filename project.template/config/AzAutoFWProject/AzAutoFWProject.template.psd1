@@ -35,8 +35,9 @@
         AutomationVariable           = @(
             # # EXAMPLE:
             # @{
-            #     Name  = 'AV_ProjectName_VariableName'
-            #     Value = [String]''
+            #     Name        = 'AV_ProjectName_VariableName'
+            #     Value       = ''
+            #     Description = 'This is an example Automation Variable.'
             # }
         )
 
