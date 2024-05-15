@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.1
+.VERSION 1.0.2
 .GUID 21809011-e700-46e3-8743-c6dfde9b75ee
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,9 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.1 (2024-05-01)
-    - Fix encryption check for existing variables.
-    - Fix type check for existing variables.
+    Version 1.0.2 (2024-05-15)
+    - Allow variables array to contain only a single definition
 #>
 
 <#
@@ -183,7 +182,7 @@ finally {
 $SetVariables = Get-AzAutomationVariable -ResourceGroupName $automationAccount.ResourceGroupName -AutomationAccountName $automationAccount.AutomationAccountName -ErrorAction SilentlyContinue
 
 $ConfirmedAzPermission = $false
-($Variables | Sort-Object -Property Name).GetEnumerator() | & {
+(,@($Variables) | Sort-Object -Property Name).GetEnumerator() | & {
     process {
         if ($VariableName -and ($VariableName -notcontains $_.Name)) { return }
         $SetVariable = $SetVariables | Where-Object Name -eq $_.Name
