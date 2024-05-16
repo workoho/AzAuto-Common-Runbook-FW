@@ -250,7 +250,7 @@ Project Link: [https://github.com/workoho/AzAuto-Common-Runbook-FW](https://gith
 ## Projects using this framework
 
 * [Cloud Administration Tiering Security Model for Microsoft Entra](https://github.com/workoho/Entra-Tiering-Security-Model)
-* [EasyLife 365 Azure Automation Kit]([https://github.com/workoho/Entra-Tiering-Security-Model](https://github.com/workoho/EasyLife365-AzAutomation)
+* [EasyLife 365 Azure Automation Kit](https://github.com/workoho/EasyLife365-AzAutomation)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
