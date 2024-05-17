@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.2.0
 .GUID 710022f9-8ea6-49a9-8a1a-0714ff253fe0
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,10 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-03-23)
-    - Add -maxSpecial parameter.
+    Version 1.2.0 (2024-05-17)
+    - Small memory optimization.
+    - Additional error handling.
+    - Use cryptographically secure random number generator.
 #>
 
 <#
@@ -69,26 +71,38 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
 Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
+#region [COMMON] INPUT VALIDATION ----------------------------------------------
+if ($length -lt $minLower + $minUpper + $minNumber + $minSpecial) {
+    Write-Error 'Password length must be greater than or equal to the sum of minLower, minUpper, minNumber, and minSpecial.' -ErrorAction Stop
+    exit 1
+}
+#endregion ---------------------------------------------------------------------
+
 #region [COMMON] FUNCTIONS -----------------------------------------------------
+function Get-CryptoRandomNumber([Int32]$maxValue) {
+    $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
+    $randomByte = [byte[]]::new(4)
+    $rng.GetBytes($randomByte)
+    $randomNumber = [System.BitConverter]::ToUInt32($randomByte, 0)
+    return $randomNumber % $maxValue
+}
 function Get-RandomCharacter([Int32]$length, [string]$characters) {
     if ($length -lt 1) { return '' }
-    if (Get-Command Get-SecureRandom -ErrorAction SilentlyContinue) {
-        $random = 1..$length | & { process { Get-SecureRandom -Maximum $characters.Length } }
-    }
-    else {
-        $random = 1..$length | & { process { Get-Random -Maximum $characters.Length } }
+    $random = 1..$length | ForEach-Object {
+        Get-CryptoRandomNumber $characters.Length
     }
     $private:ofs = ''
     return [string]$characters[$random]
 }
 function Get-ScrambleString([string]$inputString) {
     $characterArray = $inputString.ToCharArray()
-    if (Get-Command Get-SecureRandom -ErrorAction SilentlyContinue) {
-        return -join ($characterArray | Get-SecureRandom -Count $characterArray.Length)
+    $scrambledArray = [System.Text.StringBuilder]::new()
+    0..($characterArray.Length - 1) | ForEach-Object {
+        $randomIndex = Get-CryptoRandomNumber $characterArray.Length
+        $scrambledArray.Append($characterArray[$randomIndex]) | Out-Null
+        $characterArray = $characterArray[0..($randomIndex - 1)] + $characterArray[($randomIndex + 1)..($characterArray.Length - 1)]
     }
-    else {
-        return -join ($characterArray | Get-Random -Count $characterArray.Length)
-    }
+    return $scrambledArray.ToString()
 }
 #endregion ---------------------------------------------------------------------
 
@@ -116,42 +130,47 @@ elseif ($maxSpecial -le -1) {
 # Initialize a counter for special characters
 $specialCharCount = 0
 
-# Generate the password
-$return = [System.Text.StringBuilder]::new()
-if ($lowerCharsNeeded -gt 0) {
-    $null = $return.Append((Get-RandomCharacter -length $lowerCharsNeeded -characters $lowerChars))
-}
-if ($upperCharsNeeded -gt 0) {
-    $null = $return.Append((Get-RandomCharacter -length $upperCharsNeeded -characters $upperChars))
-}
-if ($numberCharsNeeded -gt 0) {
-    $null = $return.Append((Get-RandomCharacter -length $numberCharsNeeded -characters $numberChars))
-}
-if ($specialCharsNeeded -gt 0) {
-    $null = $return.Append((Get-RandomCharacter -length $specialCharsNeeded -characters $specialChars))
-    $specialCharCount += $specialCharsNeeded
-}
-
-$remainingChars = $length - $return.Length
-if ($remainingChars -gt 0) {
-    while ($remainingChars -gt 0) {
-        if ($maxSpecial -le -1 -or $specialCharCount -lt $maxSpecial) {
-            $combinedChars = $lowerChars + $upperChars + $numberChars + $specialChars
-        }
-        else {
-            $combinedChars = $lowerChars + $upperChars + $numberChars
-        }
-
-        $randomChar = Get-RandomCharacter -length 1 -characters $combinedChars
-        $null = $return.Append($randomChar)
-
-        if ($specialChars.Contains($randomChar) -and ($maxSpecial -le -1 -or $specialCharCount -lt $maxSpecial)) {
-            $specialCharCount++
-        }
-        $remainingChars = $length - $return.Length
+try {
+    # Generate the password
+    $return = [System.Text.StringBuilder]::new()
+    if ($lowerCharsNeeded -gt 0) {
+        [void] $return.Append((Get-RandomCharacter -length $lowerCharsNeeded -characters $lowerChars))
     }
+    if ($upperCharsNeeded -gt 0) {
+        [void] $return.Append((Get-RandomCharacter -length $upperCharsNeeded -characters $upperChars))
+    }
+    if ($numberCharsNeeded -gt 0) {
+        [void] $return.Append((Get-RandomCharacter -length $numberCharsNeeded -characters $numberChars))
+    }
+    if ($specialCharsNeeded -gt 0) {
+        [void] $return.Append((Get-RandomCharacter -length $specialCharsNeeded -characters $specialChars))
+        $specialCharCount += $specialCharsNeeded
+    }
+
+    $remainingChars = $length - $return.Length
+    if ($remainingChars -gt 0) {
+        while ($remainingChars -gt 0) {
+            if ($maxSpecial -le -1 -or $specialCharCount -lt $maxSpecial) {
+                $combinedChars = $lowerChars + $upperChars + $numberChars + $specialChars
+            }
+            else {
+                $combinedChars = $lowerChars + $upperChars + $numberChars
+            }
+
+            $randomChar = Get-RandomCharacter -length 1 -characters $combinedChars
+            [void] $return.Append($randomChar)
+
+            if ($specialChars.Contains($randomChar) -and ($maxSpecial -le -1 -or $specialCharCount -lt $maxSpecial)) {
+                $specialCharCount++
+            }
+            $remainingChars = $length - $return.Length
+        }
+    }
+    $return = Get-ScrambleString $return.ToString()
 }
-$return = Get-ScrambleString $return.ToString()
+catch {
+    Throw "An error occurred: $_"
+}
 
 Get-Variable | Where-Object { $StartupVariables -notcontains @($_.Name, 'return') } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
 Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
