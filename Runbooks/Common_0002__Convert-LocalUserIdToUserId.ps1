@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID 56ccfd86-ec40-4815-815a-00656a08952d
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-05-17)
+    - Small memory optimization.
 #>
 
 <#
@@ -66,7 +66,7 @@ $UserId | & {
         }
         switch -Regex ($_) {
             '^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$' {
-                $null = $script:return.Add($_)
+                [void] $script:return.Add($_)
                 break
             }
             "^(.+)_([^_]+\..+)#EXT#@(.+)$" {
@@ -74,12 +74,12 @@ $UserId | & {
                 break
             }
             '^(.+)@(.+)$' {
-                $null = $script:return.Add($_)
+                [void] $script:return.Add($_)
                 break
             }
             default {
                 Write-Warning "[COMMON]: - Could not convert $_ to user name."
-                $null = $script:return.Add($_)
+                [void] $script:return.Add($_)
                 break
             }
         }
