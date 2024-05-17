@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID 86fdceff-6855-4789-b621-9e12b25097f8
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-05-17)
+    - Small memory optimization.
 #>
 
 <#
@@ -125,7 +125,7 @@ $Modules | Where-Object { (-Not [string]::IsNullOrEmpty($_.Name)) -and ($LoadedM
                 Write-Warning "[COMMON]: - Optional module could not be loaded: $(Module.Name)"
             }
             else {
-                $null = $script:Missing.Add($Module)
+                [void] $script:Missing.Add($Module)
             }
         }
     }
