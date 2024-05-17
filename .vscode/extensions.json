@@ -8,6 +8,8 @@
     "editorconfig.editorconfig",
 
     // Git related extensions
+    "mhutchie.git-graph",
+    "donjayamanne.githistory",
     "eamodio.gitlens",
 
     // GitHub related extensions
