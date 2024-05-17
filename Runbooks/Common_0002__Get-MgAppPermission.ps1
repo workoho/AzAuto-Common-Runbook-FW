@@ -92,7 +92,7 @@ try {
         if ($null -eq $App) {
             $Apps = [System.Collections.ArrayList]::new()
             foreach ($Item in $AppRoleAssignments) {
-                $null = $Apps.Add($Item.ResourceId)
+                [void] $Apps.Add($Item.ResourceId)
             }
         }
         else {
@@ -134,7 +134,7 @@ try {
             $AppRoles = [System.Collections.ArrayList]::new()
             if ($AppRoleAssignments) {
                 foreach ($appRoleId in ($AppRoleAssignments | Where-Object ResourceId -eq $AppResource.Id | Select-Object -ExpandProperty AppRoleId -Unique)) {
-                    $null = $AppRoles.Add(($AppResource.AppRoles | Where-Object Id -eq $appRoleId | Select-Object -ExpandProperty Value))
+                    [void] $AppRoles.Add(($AppResource.AppRoles | Where-Object Id -eq $appRoleId | Select-Object -ExpandProperty Value))
                 }
             }
 
@@ -150,13 +150,13 @@ try {
                             if (-Not $Oauth2PermissionScopes.$PrincipalTypeName) {
                                 $Oauth2PermissionScopes.$PrincipalTypeName = [System.Collections.ArrayList]::new()
                             }
-                            $null = ($Oauth2PermissionScopes.$PrincipalTypeName).Add($_)
+                            [void] ($Oauth2PermissionScopes.$PrincipalTypeName).Add($_)
                         }
                     }
                 }
             }
 
-            $null = $return.Add(
+            [void] $return.Add(
                 @{
                     AppId                  = $AppResource.AppId
                     DisplayName            = $AppResource.DisplayName
@@ -210,7 +210,7 @@ try {
         if ($null -eq $App) {
             $Apps = [System.Collections.ArrayList]::new()
             foreach ($Item in $AppRoleAssignments) {
-                $null = $Apps.Add($Item.ResourceId)
+                [void] $Apps.Add($Item.ResourceId)
             }
         }
         else {
@@ -252,7 +252,7 @@ try {
             $AppRoles = [System.Collections.ArrayList]::new()
             if ($AppRoleAssignments) {
                 foreach ($appRoleId in ($AppRoleAssignments | Where-Object ResourceId -eq $AppResource.Id | Select-Object -ExpandProperty AppRoleId -Unique)) {
-                    $null = $AppRoles.Add(($AppResource.AppRoles | Where-Object Id -eq $appRoleId | Select-Object -ExpandProperty Value))
+                    [void] $AppRoles.Add(($AppResource.AppRoles | Where-Object Id -eq $appRoleId | Select-Object -ExpandProperty Value))
                 }
             }
 
@@ -268,13 +268,13 @@ try {
                             if (-Not $Oauth2PermissionScopes.$PrincipalTypeName) {
                                 $Oauth2PermissionScopes.$PrincipalTypeName = [System.Collections.ArrayList]::new()
                             }
-                            $null = ($Oauth2PermissionScopes.$PrincipalTypeName).Add($_)
+                            [void] ($Oauth2PermissionScopes.$PrincipalTypeName).Add($_)
                         }
                     }
                 }
             }
 
-            $null = $return.Add(
+            [void] $return.Add(
                 @{
                     AppId                  = $AppResource.AppId
                     DisplayName            = $AppResource.DisplayName
