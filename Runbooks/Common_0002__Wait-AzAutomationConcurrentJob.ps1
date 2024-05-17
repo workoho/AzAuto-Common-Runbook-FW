@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.1.0
 .GUID 7c2ab51e-4863-474e-bfcf-6854d3c3a688
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,9 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-01-18)
-    - First release.
+    Version 1.1.0 (2024-05-17)
+    - Small memory optimization.
+    - Improved logic for waiting for concurrent jobs.
 #>
 
 <#
@@ -73,21 +74,22 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                 Throw $_
             }
             $activeJobs = $jobs | Where-Object { $_.status -eq 'Running' -or $_.status -eq 'Queued' -or $_.status -eq 'New' -or $_.status -eq 'Activating' -or $_.status -eq 'Resuming' } | Sort-Object -Property CreationTime
-            Clear-Variable -Name jobs
 
-            $jobRanking = [System.Collections.ArrayList]::new()
             $rank = 0
-
             foreach ($activeJob in $activeJobs) {
                 $rank++
                 $activeJob | Add-Member -MemberType NoteProperty -Name jobRanking -Value $rank -Force
-                $null = $jobRanking.Add($activeJob)
             }
 
             $currentJob = $activeJobs | Where-Object { $_.JobId -eq $PSPrivateMetadata.JobId }
-            Clear-Variable -Name activeJobs
 
-            If ($currentJob.jobRanking -eq 1) {
+            If ($null -eq $currentJob) {
+                $waitTime = $((Get-Random -Minimum (3000 / $WaitStep) -Maximum (8000 / $WaitStep)) * $WaitStep)
+                $waitTimeInSeconds = [Math]::Round($waitTime / 1000, 2)
+                Write-Warning "[INFO]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Current job not found (yet) in the list of active jobs. Waiting for $waitTimeInSeconds seconds to appear."
+                Start-Sleep -Milliseconds $waitTime
+            }
+            elseif ($currentJob.JobId -eq $activeJobs[0].JobId) {
                 $DoLoop = $false
                 $return = $true
             }
@@ -97,9 +99,15 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
             }
             else {
                 $RetryCount += 1
-                Write-Verbose "[COMMON]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Waiting for concurrent jobs: I am at rank $($currentJob.jobRanking) ..." -Verbose
-                Start-Sleep -Milliseconds $((Get-Random -Minimum ($WaitMin / $WaitStep) -Maximum ($WaitMax / $WaitStep)) * $WaitStep)
+                $waitTime = $((Get-Random -Minimum ($WaitMin / $WaitStep) -Maximum ($WaitMax / $WaitStep)) * $WaitStep)
+                $waitTimeInSeconds = [Math]::Round($waitTime / 1000, 2)
+                Write-Warning "[INFO]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Waiting for concurrent jobs: I am at rank $($currentJob.jobRanking) out of $($rank) active jobs. Waiting for $waitTimeInSeconds seconds."
+                Start-Sleep -Milliseconds $waitTime
             }
+
+            Clear-Variable -Name jobs
+            Clear-Variable -Name activeJobs
+            Clear-Variable -Name currentJob
         } While ($DoLoop)
     }
 }
