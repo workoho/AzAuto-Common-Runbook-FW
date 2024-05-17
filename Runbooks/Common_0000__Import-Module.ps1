@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.1
+.VERSION 1.0.2
 .GUID 86fdceff-6855-4789-b621-9e12b25097f8
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,9 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.1 (2024-05-17)
+    Version 1.0.2 (2024-05-17)
     - Small memory optimization.
+    - Less repetitive verbose output.
 #>
 
 <#
@@ -84,11 +85,21 @@ else {
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
 
 if (-Not [string]::IsNullOrEmpty($AutoloadingPreference)) {
-    Write-Verbose "[COMMON]: - Setting PowerShell module AutoloadingPreference to $AutoloadingPreference"
+    if ($Initialized) {
+        Write-Debug "[COMMON]: - Setting PowerShell module AutoloadingPreference to $AutoloadingPreference"
+    }
+    else {
+        Write-Verbose "[COMMON]: - Setting PowerShell module AutoloadingPreference to $AutoloadingPreference"
+    }
     $global:PSModuleAutoloadingPreference = $AutoloadingPreference
 }
 elseif ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.JobId) {
-    Write-Verbose '[COMMON]: - Enforcing manual Import-Module in Azure Automation'
+    if ($Initialized) {
+        Write-Debug '[COMMON]: - Enforcing manual Import-Module in Azure Automation'
+    }
+    else {
+        Write-Verbose '[COMMON]: - Enforcing manual Import-Module in Azure Automation'
+    }
     $global:PSModuleAutoloadingPreference = 'ModuleQualified'
 }
 
