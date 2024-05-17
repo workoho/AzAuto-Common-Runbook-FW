@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.1
+.VERSION 1.2.2
 .GUID 1dc765c0-4922-4142-a945-13206df25f13
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.1 (2024-05-15)
-    - Require version 2.8 of Az.Accounts module. This is currently required as Az 11.2.0 does not work correctly in PowerShell 5.1 in Azure Automation.
+    Version 1.2.2 (2024-05-17)
+    - Small memory optimization.
 #>
 
 <#
@@ -124,12 +124,12 @@ if (-Not (Get-AzContext)) {
 
             try {
                 if ($null -eq $global:PSModuleAutoloadingPreference) {
-                    $null = Get-AutomationVariable -Name DummyVar -ErrorAction SilentlyContinue
+                    $null = Get-AutomationVariable -Name DummyVar -ErrorAction SilentlyContinue -WhatIf
                 }
                 else {
                     $AutoloadingPreference = $global:PSModuleAutoloadingPreference
                     $global:PSModuleAutoloadingPreference = 'All'
-                    $null = Get-AutomationVariable -Name DummyVar -ErrorAction SilentlyContinue
+                    $null = Get-AutomationVariable -Name DummyVar -ErrorAction SilentlyContinue -WhatIf
                     $global:PSModuleAutoloadingPreference = $AutoloadingPreference
                 }
             }
