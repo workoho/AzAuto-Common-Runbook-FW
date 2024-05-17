@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID 05273e10-2a70-42aa-82d3-7881324beead
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-05-17)
+    - Small memory optimization.
 #>
 
 <#
@@ -66,10 +66,10 @@ function Get-MgMissingScope ([Array]$Scopes) {
     foreach ($Scope in $Scopes) {
         if ($WhatIfPreference -and ($Scope -like '*Write*')) {
             Write-Verbose "[COMMON]: - What If: Removed $Scope from required Microsoft Graph scopes"
-            $null = $script:Scopes.Remove($Scope)
+            [void] $script:Scopes.Remove($Scope)
         }
         elseif ($Scope -notin @((Get-MgContext).Scopes)) {
-            $null = $MissingScopes.Add($Scope)
+            [void] $MissingScopes.Add($Scope)
         }
     }
     return $MissingScopes
