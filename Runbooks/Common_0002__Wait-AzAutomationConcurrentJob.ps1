@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.2.0
 .GUID 7c2ab51e-4863-474e-bfcf-6854d3c3a688
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,9 +12,10 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-05-17)
-    - Small memory optimization.
-    - Improved logic for waiting for concurrent jobs.
+    Version 1.2.0 (2024-05-21)
+    - Use pipeline to process jobs to avoid memory issues.
+    - Add explicit garbage collection.
+    - Be less verbose about queue position.
 #>
 
 <#
@@ -61,54 +62,86 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
         $DoLoop = $true
         $RetryCount = 1
         $MaxRetry = 300
-
         $WaitMin = 25000
         $WaitMax = 30000
         $WaitStep = 100
+        $warningCounter = 0
+        $warningInterval = 180  # 3 minutes / 1 second sleep
 
         do {
+            $activeJobs = New-Object System.Collections.ArrayList
+
             try {
-                $jobs = Get-AzAutomationJob -ResourceGroupName $env:AZURE_AUTOMATION_ResourceGroupName -AutomationAccountName $env:AZURE_AUTOMATION_AccountName -RunbookName $env:AZURE_AUTOMATION_RUNBOOK_Name -ErrorAction Stop -Verbose:$false
+                # Get all jobs for the runbook and process using pipeline to avoid memory issues
+                Get-AzAutomationJob -ResourceGroupName $env:AZURE_AUTOMATION_ResourceGroupName -AutomationAccountName $env:AZURE_AUTOMATION_AccountName -RunbookName $env:AZURE_AUTOMATION_RUNBOOK_Name -ErrorAction Stop -Verbose:$false |
+                & {
+                    process {
+                        if (
+                            $_.status -eq 'Running' -or
+                            $_.status -eq 'Queued' -or
+                            $_.status -eq 'New' -or
+                            $_.status -eq 'Activating' -or
+                            $_.status -eq 'Resuming'
+                        ) {
+                            [void] $activeJobs.Add(
+                                @{
+                                    JobId        = $_.JobId
+                                    CreationTime = $_.CreationTime
+                                }
+                            )
+                        }
+                    }
+                }
             }
             catch {
                 Throw $_
             }
-            $activeJobs = $jobs | Where-Object { $_.status -eq 'Running' -or $_.status -eq 'Queued' -or $_.status -eq 'New' -or $_.status -eq 'Activating' -or $_.status -eq 'Resuming' } | Sort-Object -Property CreationTime
 
-            $rank = 0
-            foreach ($activeJob in $activeJobs) {
-                $rank++
-                $activeJob | Add-Member -MemberType NoteProperty -Name jobRanking -Value $rank -Force
-            }
-
+            $activeJobs = @($activeJobs | Sort-Object -Property CreationTime -Descending)
             $currentJob = $activeJobs | Where-Object { $_.JobId -eq $PSPrivateMetadata.JobId }
 
-            If ($null -eq $currentJob) {
+            if ($null -eq $currentJob) {
                 $waitTime = $((Get-Random -Minimum (3000 / $WaitStep) -Maximum (8000 / $WaitStep)) * $WaitStep)
                 $waitTimeInSeconds = [Math]::Round($waitTime / 1000, 2)
                 Write-Warning "[INFO]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Current job not found (yet) in the list of active jobs. Waiting for $waitTimeInSeconds seconds to appear."
                 Start-Sleep -Milliseconds $waitTime
             }
             elseif ($currentJob.JobId -eq $activeJobs[0].JobId) {
+                Write-Verbose "[INFO]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Current job is at the top of the queue."
                 $DoLoop = $false
                 $return = $true
             }
             elseif ($RetryCount -ge $MaxRetry) {
+                Write-Warning "[INFO]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Maximum retry count reached. Exiting loop."
                 $DoLoop = $false
                 $return = $false
             }
             else {
-                $RetryCount += 1
+                $RetryCount++
                 $waitTime = $((Get-Random -Minimum ($WaitMin / $WaitStep) -Maximum ($WaitMax / $WaitStep)) * $WaitStep)
                 $waitTimeInSeconds = [Math]::Round($waitTime / 1000, 2)
-                Write-Warning "[INFO]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Waiting for concurrent jobs: I am at rank $($currentJob.jobRanking) out of $($rank) active jobs. Waiting for $waitTimeInSeconds seconds."
+                $rank = 0
+                for ($i = 0; $i -lt $activeJobs.Length; $i++) {
+                    if ($activeJobs[$i].jobId -eq $currentJob.JobId) {
+                        $rank = $i
+                        break
+                    }
+                }
+                if ($warningCounter % $warningInterval -eq 0) {
+                    Write-Warning "[INFO]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Waiting for concurrent jobs: I am at rank $($rank) out of $($activeJobs.Count) active jobs. Waiting for $waitTimeInSeconds seconds. Next status update will be in $warningInterval seconds."
+                }
+                else {
+                    Write-Verbose "[INFO]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Waiting for concurrent jobs: I am at rank $($rank) out of $($activeJobs.Count) active jobs. Waiting for $waitTimeInSeconds seconds."
+                }
                 Start-Sleep -Milliseconds $waitTime
             }
 
-            Clear-Variable -Name jobs
+            $warningCounter++
             Clear-Variable -Name activeJobs
             Clear-Variable -Name currentJob
-        } While ($DoLoop)
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+        } while ($DoLoop)
     }
 }
 else {
