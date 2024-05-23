@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.0
+.VERSION 1.2.1
 .GUID 7c2ab51e-4863-474e-bfcf-6854d3c3a688
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,10 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.0 (2024-05-21)
-    - Use pipeline to process jobs to avoid memory issues.
-    - Add explicit garbage collection.
-    - Be less verbose about queue position.
+    Version 1.2.1 (2024-05-23)
+    - Fix job queue sorting issue.
 #>
 
 <#
@@ -97,7 +95,7 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                 Throw $_
             }
 
-            $activeJobs = @($activeJobs | Sort-Object -Property CreationTime -Descending)
+            $activeJobs = @($activeJobs | Sort-Object -Property CreationTime)
             $currentJob = $activeJobs | Where-Object { $_.JobId -eq $PSPrivateMetadata.JobId }
 
             if ($null -eq $currentJob) {
@@ -118,8 +116,8 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
             }
             else {
                 $RetryCount++
-                $waitTime = $((Get-Random -Minimum ($WaitMin / $WaitStep) -Maximum ($WaitMax / $WaitStep)) * $WaitStep)
                 $waitTimeInSeconds = [Math]::Round($waitTime / 1000, 2)
+                $warningCounter += $waitTimeInSeconds
                 $rank = 0
                 for ($i = 0; $i -lt $activeJobs.Length; $i++) {
                     if ($activeJobs[$i].jobId -eq $currentJob.JobId) {
@@ -127,8 +125,9 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                         break
                     }
                 }
-                if ($warningCounter % $warningInterval -eq 0) {
+                if ($warningCounter -ge $warningInterval) {
                     Write-Warning "[INFO]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Waiting for concurrent jobs: I am at rank $($rank) out of $($activeJobs.Count) active jobs. Waiting for $waitTimeInSeconds seconds. Next status update will be in $warningInterval seconds."
+                    $warningCounter = 0
                 }
                 else {
                     Write-Verbose "[INFO]: - $(Get-Date -Format yyyy-MM-dd-hh-mm-ss.ffff) Waiting for concurrent jobs: I am at rank $($rank) out of $($activeJobs.Count) active jobs. Waiting for $waitTimeInSeconds seconds."
@@ -136,7 +135,6 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                 Start-Sleep -Milliseconds $waitTime
             }
 
-            $warningCounter++
             Clear-Variable -Name activeJobs
             Clear-Variable -Name currentJob
             [System.GC]::Collect()
