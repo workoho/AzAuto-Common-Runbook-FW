@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.0
+.VERSION 1.2.1
 .GUID 05a03d22-11a6-4114-8241-6e02a66d00fc
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,9 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.0 (2024-05-01)
-    - Use Set-AzAutomationVariableAsPSEnv.ps1 to set Azure Automation variables as environment variables during local development.
+    Version 1.2.1 (2024-05-23)
+    - Throw exception in case automation variables could not be retrieved after 5 attempts.
+    - Fix setups where only a single automation variable is imported.
 #>
 
 <#
@@ -62,7 +63,26 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
             Throw 'Missing environment variable $env:AZURE_AUTOMATION_AccountName'
         }
         else {
-            $AutomationVariables = Get-AzAutomationVariable -ResourceGroupName $env:AZURE_AUTOMATION_ResourceGroupName -AutomationAccountName $env:AZURE_AUTOMATION_AccountName -Verbose:$false
+            $retryCount = 0
+            $success = $false
+            $AutomationVariables = $null
+            $lastError = $null
+
+            while (-not $success -and $retryCount -lt 5) {
+                try {
+                    $AutomationVariables = @(Get-AzAutomationVariable -ResourceGroupName $env:AZURE_AUTOMATION_ResourceGroupName -AutomationAccountName $env:AZURE_AUTOMATION_AccountName -Verbose:$false -ErrorAction Stop)
+                    $success = $true
+                }
+                catch {
+                    $lastError = $_
+                    $retryCount++
+                    Start-Sleep -Seconds (5 * $retryCount) # exponential backoff
+                }
+            }
+
+            if (-not $success) {
+                throw "Failed to get automation variables after 5 attempts. Last error: $lastError"
+            }
         }
     }
     catch {
