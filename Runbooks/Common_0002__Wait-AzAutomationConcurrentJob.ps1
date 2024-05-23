@@ -116,6 +116,7 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
             }
             else {
                 $RetryCount++
+                $waitTime = $((Get-Random -Minimum ($WaitMin / $WaitStep) -Maximum ($WaitMax / $WaitStep)) * $WaitStep)
                 $waitTimeInSeconds = [Math]::Round($waitTime / 1000, 2)
                 $warningCounter += $waitTimeInSeconds
                 $rank = 0
