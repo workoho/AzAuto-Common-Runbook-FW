@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.1
+.VERSION 1.0.2
 .GUID 05273e10-2a70-42aa-82d3-7881324beead
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.1 (2024-05-17)
-    - Small memory optimization.
+    Version 1.0.2 (2024-05-24)
+    - Throw exception with invalid or empty tenant ID
 #>
 
 <#
@@ -80,7 +80,15 @@ $params = @{
     ContextScope = 'Process'
     ErrorAction  = 'Stop'
 }
-if ($TenantId) { $params.TenantId = $TenantId }
+if ($TenantId) {
+    if (
+        $TenantId -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' -or
+        $TenantId -eq '00000000-0000-0000-0000-000000000000'
+    ) {
+        Throw '[COMMON]: - Invalid tenant ID. The tenant ID must be a valid GUID.'
+    }
+    $params.TenantId = $TenantId
+}
 if (
     -Not (Get-MgContext) -or
     $params.TenantId -ne (Get-MgContext).TenantId
