@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.2
+.VERSION 1.2.3
 .GUID 1dc765c0-4922-4142-a945-13206df25f13
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.2 (2024-05-17)
-    - Small memory optimization.
+    Version 1.2.3 (2024-05-24)
+    - Throw exception with invalid or empty tenant ID
 #>
 
 <#
@@ -112,9 +112,18 @@ if (-Not (Get-AzContext)) {
     }
 
     try {
-        Write-Information 'Connecting to Microsoft Azure ...' -InformationAction Continue
-        if ($Tenant) { $params.Tenant = $Tenant }
+        if ($Tenant) {
+            if (
+                $Tenant -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' -or
+                $Tenant -eq '00000000-0000-0000-0000-000000000000'
+            ) {
+                Throw '[COMMON]: - Invalid tenant ID. The tenant ID must be a valid GUID.'
+            }
+            $params.Tenant = $Tenant
+        }
         if ($Subscription) { $params.Subscription = $Subscription }
+
+        Write-Information 'Connecting to Microsoft Azure ...' -InformationAction Continue
         $Context = (Connect-AzAccount @params).context
 
         $Context = Set-AzContext -SubscriptionName $Context.Subscription -DefaultProfile $Context
