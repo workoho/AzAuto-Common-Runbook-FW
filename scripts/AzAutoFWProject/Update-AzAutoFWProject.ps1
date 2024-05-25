@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID cf48a802-2939-4e1b-9d8a-42467edc4410
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-05-25)
+    - Use Write-Host to avoid output to the pipeline, avoiding interpretation as shell commands
 #>
 
 <#
@@ -100,7 +100,7 @@ try {
         ) {
             $targetCommit = git rev-parse $($ChildConfig.GitReference)
             if ($currentCommit -ne $targetCommit) {
-                Write-Output "Checking out Git branch or commit hash '$($ChildConfig.GitReference)'"
+                Write-Host "Checking out Git branch or commit hash '$($ChildConfig.GitReference)'"
                 $checkoutOutput = git checkout $($ChildConfig.GitReference) 2>&1
                 $resetOutput = git reset --hard $($ChildConfig.GitReference) 2>&1
             }
@@ -115,7 +115,7 @@ try {
         ) {
             $targetCommit = git rev-parse $("v$($ChildConfig.ModuleVersion)")
             if ($currentCommit -ne $targetCommit) {
-                Write-Output "Checking out Git reference ModuleVersion, Git tag v$($ChildConfig.ModuleVersion)"
+                Write-Host "Checking out Git reference ModuleVersion, Git tag v$($ChildConfig.ModuleVersion)"
                 $checkoutOutput = git checkout $("v$($ChildConfig.ModuleVersion)") 2>&1
                 $resetOutput = git reset --hard $("v$($ChildConfig.ModuleVersion)") 2>&1
             }
@@ -129,7 +129,7 @@ try {
         ) {
             $targetCommit = git rev-parse $("v$($LatestReleaseTag)")
             if ($currentCommit -ne $targetCommit) {
-                Write-Output "Checking out Git reference LatestRelease, Git tag v$LatestReleaseTag"
+                Write-Host "Checking out Git reference LatestRelease, Git tag v$LatestReleaseTag"
                 $checkoutOutput = git checkout $("v$($LatestReleaseTag)") 2>&1
                 $resetOutput = git reset --hard $("v$($LatestReleaseTag)") 2>&1
             }
@@ -138,7 +138,7 @@ try {
             }
         }
         elseif ($currentCommit -ne (& git rev-parse $currentBranch)) {
-            Write-Output "Checking out the latest commit from the current branch $currentBranch"
+            Write-Host "Checking out the latest commit from the current branch $currentBranch"
             $checkoutOutput = git checkout $($currentBranch) 2>&1
             $resetOutput = git reset --hard $($currentBranch) 2>&1
         }
@@ -389,7 +389,7 @@ $list | & {
                                 }
                             }
                             else {
-                                Write-Output "Cloning config '$destFile' from project template folder"
+                                Write-Host "Cloning config '$destFile' from project template folder"
                                 Copy-Item -LiteralPath $_.FullName -Destination $destFile -Force
                             }
                         }
@@ -431,7 +431,7 @@ $list | & {
                                         (Get-FileMD5Hash $_.FullName) -ne (Get-FileMD5Hash $destFile.FullName)
                                     ) {
                                         if ($overwrite -ne $true) {
-                                            Write-Output "Updating script '$destFile' from project template folder"
+                                            Write-Host "Updating script '$destFile' from project template folder"
                                             Copy-Item -LiteralPath $_.FullName -Destination $destFile.FullName -Force
                                         }
                                         else {
@@ -461,7 +461,7 @@ $list | & {
                                         -not (Test-Path -LiteralPath $destFile.FullName) -or
                                         $currTarget -ne $TargetPath
                                     ) {
-                                        Write-Output "Updating script symlink '$($destFile.FullName)' to project template folder"
+                                        Write-Host "Updating script symlink '$($destFile.FullName)' to project template folder"
                                         $params = @{
                                             ItemType    = 'SymbolicLink'
                                             Path        = $destFile.FullName
@@ -477,14 +477,14 @@ $list | & {
                                 }
                             }
                             elseif ($action -eq 'copy') {
-                                Write-Output "Cloning script '$destFile' from project template folder"
+                                Write-Host "Cloning script '$destFile' from project template folder"
                                 Copy-Item -LiteralPath $_.FullName -Destination $destFile -Force
                             }
                             elseif ($createOrUpdateSymlink -ne $true) {
                                 Write-Verbose "Skipping creation of script symlink '$destFile' to project template folder because Developer Mode is not enabled."
                             }
                             elseif ($action -eq 'symlink') {
-                                Write-Output "Creating script symlink '$destFile' to project template folder"
+                                Write-Host "Creating script symlink '$destFile' to project template folder"
                                 if ([System.Environment]::OSVersion.Platform -eq "Unix") {
                                     Write-Verbose "Using relative target path on Unix"
                                     $BaseUri = New-Object System.Uri $destFile
