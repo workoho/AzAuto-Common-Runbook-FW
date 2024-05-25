@@ -171,20 +171,20 @@ try {
             $headRef = git symbolic-ref -q HEAD
             $headRef = $headRef -replace 'refs/heads/', '' -replace 'refs/tags/', ''
 
-            if ($headRef -ne $("v$($LatestReleaseTag)")) {
-                Write-Host "Checking out Git reference LatestRelease, Git tag v$LatestReleaseTag"
-                $checkoutOutput = git checkout $("v$($LatestReleaseTag)") 2>&1
+            if ($headRef -ne $LatestReleaseTag) {
+                Write-Host "Checking out Git reference LatestRelease, Git tag $LatestReleaseTag"
+                $checkoutOutput = git checkout $LatestReleaseTag 2>&1
                 if ($LASTEXITCODE -ne 0) {
                     Write-Error $checkoutOutput -ErrorAction Stop
                 }
 
-                $resetOutput = git reset --hard $("v$($LatestReleaseTag)") 2>&1
+                $resetOutput = git reset --hard $LatestReleaseTag 2>&1
                 if ($LASTEXITCODE -ne 0) {
                     Write-Error $resetOutput -ErrorAction Stop
                 }
             }
             else {
-                Write-Verbose "Git reference LatestRelease, Git tag v$LatestReleaseTag is already checked out."
+                Write-Verbose "Git reference LatestRelease, Git tag $LatestReleaseTag is already checked out."
             }
         }
         elseif ($currentCommit -ne (& git rev-parse $currentBranch)) {
