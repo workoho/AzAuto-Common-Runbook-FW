@@ -48,7 +48,7 @@ Get-ChildItem -Path $configDir -File -Filter '*.template.*' -Recurse | & {
     process {
         $targetPath = $_.FullName -replace '\.template\.(.+)$', '.$1'
         if (-not (Test-Path $targetPath)) {
-            Write-Verbose "Copying $_ to $targetPath"
+            Write-Host "Copying template $_ to $targetPath"
             Copy-Item -Path $_.FullName -Destination $targetPath -Force
         }
     }
