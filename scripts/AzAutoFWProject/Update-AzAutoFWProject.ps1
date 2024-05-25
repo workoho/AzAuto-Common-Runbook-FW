@@ -86,7 +86,7 @@ try {
             Write-Verbose 'Fetching the latest tags from the remote repository'
             $retryCount = 0
             do {
-                $fetchOutput = git fetch --tags 2>&1
+                $fetchOutput = git fetch --tags --force 2>&1
                 if ($LASTEXITCODE -ne 0) {
                     $retryCount++
                     if ($retryCount -le 3) {
