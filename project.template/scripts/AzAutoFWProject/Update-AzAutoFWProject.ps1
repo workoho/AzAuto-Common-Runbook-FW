@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID b5e78940-5e2f-427d-87a1-c1630ed8c3da
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-03-17)
-    - Initial release.
+    Version 1.0.1 (2024-03-17)
+    - Use Write-Host to avoid output to the pipeline, avoiding interpretation as shell commands
 #>
 
 <#
@@ -139,7 +139,7 @@ $AzAutoFWDir = Join-Path (Get-Item $PSScriptRoot).Parent.Parent.Parent.FullName 
 
 if (-Not (Test-Path (Join-Path $AzAutoFWDir '.git') -PathType Container)) {
     try {
-        Write-Output "Cloning $($config.GitRepositoryUrl) to $AzAutoFWDir"
+        Write-Host "Cloning $($config.GitRepositoryUrl) to $AzAutoFWDir"
         $output = git clone --quiet $config.GitRepositoryUrl $AzAutoFWDir 2>&1
         if ($LASTEXITCODE -ne 0) { Throw "Failed to clone repository: $output" }
     }
