@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.1
+.VERSION 1.0.2
 .GUID cf48a802-2939-4e1b-9d8a-42467edc4410
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,10 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.1 (2024-05-25)
+    Version 1.0.2 (2024-05-25)
     - Use Write-Host to avoid output to the pipeline, avoiding interpretation as shell commands
+    - Improve automatic Git checkout
+    - Improve error handling
 #>
 
 <#
@@ -39,7 +41,7 @@ param(
     [switch]$VsCodeTask
 )
 
-if ((Get-PSCallStack).Count -le 1) { Write-Error 'This script must be called from your project''s sibling Update-AzAutoFWProject.ps1. Exiting ...' -ErrorAction Stop; exit }
+if ((Get-PSCallStack).Count -le 1) { Write-Error 'This script must be called from your project''s sibling Update-AzAutoFWProject.ps1. Exiting ...' -ErrorAction Stop; exit 1 }
 Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
 
 Get-ChildItem -Path $configDir -File -Filter '*.template.*' -Recurse | & {
@@ -68,7 +70,7 @@ try {
         (git rev-parse --is-inside-work-tree 2>&1) -ne $true
     ) {
         Write-Error "$($config.Project.Directory) is not a Git repository." -ErrorAction Stop
-        exit
+        exit 1
     }
 
     Write-Verbose 'Found Git repository.'
@@ -78,6 +80,28 @@ try {
         Write-Warning "Automatic checkout of the desired version in the $(Split-Path $config.Project.Directory -Leaf) repository is disabled as long as there are uncommited changes.`n         Please commit or stash them if you would like to automatically switch versions based on your settings in AzAutoFWProject.psd1."
     }
     else {
+        $remoteExists = git remote | Where-Object { $_ -eq 'origin' }
+        if ($remoteExists) {
+            Write-Verbose 'Fetching the latest tags from the remote repository'
+            $retryCount = 0
+            do {
+                $fetchOutput = git fetch --tags 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    $retryCount++
+                    if ($retryCount -le 3) {
+                        Write-Warning "Fetch failed, retrying in 5 seconds... ($retryCount/3)"
+                        Start-Sleep -Seconds 5
+                    }
+                    else {
+                        Write-Error $fetchOutput -ErrorAction Stop
+                    }
+                }
+            } while ($LASTEXITCODE -ne 0)
+        }
+        else {
+            Write-Verbose 'No remote repository named origin found. Skipping fetch operation.'
+        }
+
         $currentBranch = git rev-parse --abbrev-ref HEAD
         $currentTag = git describe --tags --always
         $currentCommit = git rev-parse HEAD
@@ -95,14 +119,21 @@ try {
 
         Write-Verbose "Latest release tag: $LatestReleaseTag"
 
-        $checkoutCommand = if (
+        if (
             $ChildConfig.GitReference -notin ('ModuleVersion', 'LatestRelease', 'latest')
         ) {
             $targetCommit = git rev-parse $($ChildConfig.GitReference)
             if ($currentCommit -ne $targetCommit) {
                 Write-Host "Checking out Git branch or commit hash '$($ChildConfig.GitReference)'"
                 $checkoutOutput = git checkout $($ChildConfig.GitReference) 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error $checkoutOutput -ErrorAction Stop
+                }
+
                 $resetOutput = git reset --hard $($ChildConfig.GitReference) 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error $resetOutput -ErrorAction Stop
+                }
             }
             else {
                 Write-Verbose "Git branch or commit hash '$($ChildConfig.GitReference)' is already checked out."
@@ -113,11 +144,20 @@ try {
             $tags -and
             $tags -contains $("v$($ChildConfig.ModuleVersion)")
         ) {
-            $targetCommit = git rev-parse $("v$($ChildConfig.ModuleVersion)")
-            if ($currentCommit -ne $targetCommit) {
+            $headRef = git symbolic-ref -q HEAD
+            $headRef = $headRef -replace 'refs/heads/', '' -replace 'refs/tags/', ''
+
+            if ($headRef -ne $("v$($ChildConfig.ModuleVersion)")) {
                 Write-Host "Checking out Git reference ModuleVersion, Git tag v$($ChildConfig.ModuleVersion)"
                 $checkoutOutput = git checkout $("v$($ChildConfig.ModuleVersion)") 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error $checkoutOutput -ErrorAction Stop
+                }
+
                 $resetOutput = git reset --hard $("v$($ChildConfig.ModuleVersion)") 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error $resetOutput -ErrorAction Stop
+                }
             }
             else {
                 Write-Verbose "Git reference ModuleVersion, Git tag v$($ChildConfig.ModuleVersion) is already checked out."
@@ -127,37 +167,45 @@ try {
             $ChildConfig.GitReference -eq 'LatestRelease' -and
             $LatestReleaseTag
         ) {
-            $targetCommit = git rev-parse $("v$($LatestReleaseTag)")
-            if ($currentCommit -ne $targetCommit) {
+            $headRef = git symbolic-ref -q HEAD
+            $headRef = $headRef -replace 'refs/heads/', '' -replace 'refs/tags/', ''
+
+            if ($headRef -ne $("v$($LatestReleaseTag)")) {
                 Write-Host "Checking out Git reference LatestRelease, Git tag v$LatestReleaseTag"
                 $checkoutOutput = git checkout $("v$($LatestReleaseTag)") 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error $checkoutOutput -ErrorAction Stop
+                }
+
                 $resetOutput = git reset --hard $("v$($LatestReleaseTag)") 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error $resetOutput -ErrorAction Stop
+                }
             }
             else {
                 Write-Verbose "Git reference LatestRelease, Git tag v$LatestReleaseTag is already checked out."
             }
         }
         elseif ($currentCommit -ne (& git rev-parse $currentBranch)) {
-            Write-Host "Checking out the latest commit from the current branch $currentBranch"
-            $checkoutOutput = git checkout $($currentBranch) 2>&1
-            $resetOutput = git reset --hard $($currentBranch) 2>&1
+            Write-Host "Merging the latest changes from the current branch $currentBranch"
+            $checkoutOutput = git merge origin/$currentBranch 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error $checkoutOutput -ErrorAction Stop
+            }
+
+            $resetOutput = git reset --hard 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error $resetOutput -ErrorAction Stop
+            }
         }
         else {
-            Write-Verbose "The latest commit from the current branch $currentBranch is already checked out."
-        }
-
-        if ($checkoutCommand) {
-            $output = & $checkoutCommand
-            if ($LASTEXITCODE -ne 0) {
-                Write-Error $output -ErrorAction Stop
-                exit
-            }
+            Write-Verbose "The current branch $currentBranch is up-to-date."
         }
     }
 }
 catch {
     Write-Error $_ -ErrorAction Stop
-    exit
+    exit 1
 }
 finally {
     Pop-Location
@@ -216,6 +264,7 @@ if ([System.Environment]::OSVersion.Platform -eq "Win32NT") {
         # Check if the process was successful
         if ($process.ExitCode -ne 0) {
             Write-Warning "The script run was not successful. Exit code: $($process.ExitCode)"
+            exit $($process.ExitCode)
         }
         else {
             Write-Verbose 'Script successfully ran in elevated mode. Exiting ...'
