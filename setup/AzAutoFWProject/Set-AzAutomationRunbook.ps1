@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.1
+.VERSION 1.0.2
 .GUID ac0280b2-7ee2-46bf-8a32-c1277189fb60
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.1 (2024-03-09)
-    - Fix File version generation from Git branch name in case Git repository is in detached head state.
+    Version 1.0.2 (2024-05-25)
+    - Fix Git cache for runbook files
 #>
 
 <#
@@ -723,9 +723,9 @@ try {
                         if ($null -ne $remoteOrigin) {
                             Write-Verbose "  Using remote '$remoteOrigin' for Git tags."
                             $tags.'Git.RepositoryUrl' = $remoteOrigin
-                            if ($gitCache.latestRemoteTag) { $latestRemoteTag = $gitCache.latestRemoteTag } else {
+                            if ($gitCache.Repository.$currentDirectory.latestRemoteTag) { $latestRemoteTag = $gitCache.Repository.$currentDirectory.latestRemoteTag } else {
                                 $latestRemoteTag = (git ls-remote --tags $remoteOrigin 2>$null | Where-Object { $_ -match 'refs/tags/v' } | Select-Object -Last 1) -replace '.*refs/tags/v', ''
-                                $gitCache.latestRemoteTag = $latestRemoteTag
+                                $gitCache.Repository.$currentDirectory.latestRemoteTag = $latestRemoteTag
                             }
                             Write-Verbose "  Latest remote tag: $latestRemoteTag"
                         }
@@ -737,9 +737,9 @@ try {
                             $tags.'Git.RepositoryUrl' = "file://$hostname/$($hFilePath.Replace('\', '/'))"
                             Write-Verbose "  Using only local repository '$($tags.'Git.RepositoryUrl')' for Git tags."
                         }
-                        if ($gitCache.latestLocalTag) { $latestLocalTag = $gitCache.latestLocalTag } else {
+                        if ($gitCache.Repository.$currentDirectory.latestLocalTag) { $latestLocalTag = $gitCache.Repository.$currentDirectory.latestLocalTag } else {
                             $latestLocalTag = (git tag --list 'v*' 2>$null | Select-Object -Last 1) -replace '^v', ''
-                            $gitCache.latestLocalTag = $latestLocalTag
+                            $gitCache.Repository.$currentDirectory.latestLocalTag = $latestLocalTag
                         }
                         Write-Verbose "  Latest local tag : $latestLocalTag"
                         if (
