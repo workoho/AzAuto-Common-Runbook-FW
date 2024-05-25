@@ -16,6 +16,7 @@
     - Use Write-Host to avoid output to the pipeline, avoiding interpretation as shell commands
     - Improve automatic Git checkout
     - Improve error handling
+    - Fix automatic update of project.template files
 #>
 
 <#
@@ -479,7 +480,7 @@ $list | & {
                                         -not (Test-Path -LiteralPath $destFile.FullName) -or
                                         (Get-FileMD5Hash $_.FullName) -ne (Get-FileMD5Hash $destFile.FullName)
                                     ) {
-                                        if ($overwrite -ne $true) {
+                                        if ($overwrite -eq $true) {
                                             Write-Host "Updating script '$destFile' from project template folder"
                                             Copy-Item -LiteralPath $_.FullName -Destination $destFile.FullName -Force
                                         }
