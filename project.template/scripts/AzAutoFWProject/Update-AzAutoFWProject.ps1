@@ -12,8 +12,9 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.1 (2024-03-17)
+    Version 1.0.1 (2024-05-25)
     - Use Write-Host to avoid output to the pipeline, avoiding interpretation as shell commands
+    - Set error code when exiting with error
 #>
 
 <#
@@ -116,21 +117,21 @@ else {
     }
     catch {
         Write-Error "Failed to read configuration file ${configPath}: $_" -ErrorAction Stop
-        exit
+        exit 1
     }
     $config.Project = @{ Directory = $projectDir }
     $config.Config = @{ Directory = $configDir; Name = $configName; Path = $configPath }
     $config.IsAzAutoFWProject = $true
 }
 
-if (-not $config.GitRepositoryUrl) { Write-Error "config.GitRepositoryUrl is missing in $configPath"; exit }
-if (-not $config.GitReference) { Write-Error "config.GitReference is missing in $configPath"; exit }
+if (-not $config.GitRepositoryUrl) { Write-Error "config.GitRepositoryUrl is missing in $configPath"; exit 1 }
+if (-not $config.GitReference) { Write-Error "config.GitReference is missing in $configPath"; exit 1 }
 #endregion
 
 #region Clone repository if not exists
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Error "Git is not installed on this system."
-    exit
+    exit 1
 }
 
 $AzAutoFWDir = Join-Path (Get-Item $PSScriptRoot).Parent.Parent.Parent.FullName (
@@ -145,7 +146,7 @@ if (-Not (Test-Path (Join-Path $AzAutoFWDir '.git') -PathType Container)) {
     }
     catch {
         Write-Error $_
-        exit
+        exit 1
     }
 }
 #endregion
@@ -163,15 +164,14 @@ try {
                 }
             }
             else {
-                Write-Error "Could not find $_"
-                exit
+                Write-Error "Could not find $_" -ErrorAction Stop
             }
         }
     }
 }
 catch {
     Write-Error $_
-    exit
+    exit 1
 }
 #endregion
 
