@@ -70,10 +70,10 @@ do {
             [System.GC]::Collect()
 
             if ($_.Exception.Response.StatusCode -eq 429) {
-                Write-Verbose "Rate limit exceeded, retrying in $waitTime seconds..."
+                Write-Verbose "[COMMON]: - Rate limit exceeded, retrying in $waitTime seconds..."
             }
             else {
-                Write-Verbose "Service unavailable, retrying in $waitTime seconds..."
+                Write-Verbose "[COMMON]: - Service unavailable, retrying in $waitTime seconds..."
             }
 
             Start-Sleep -Milliseconds ($waitTime * 1000) # convert wait time to milliseconds for Start-Sleep
