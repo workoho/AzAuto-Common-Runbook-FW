@@ -54,6 +54,8 @@ Param(
 )
 
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
+Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
+$StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
 @($UserId) | & { process { ($_ -replace '\s', '').Split(',') } } | & {
     process {
@@ -73,13 +75,13 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
 
         if ($null -ne $Property) {
             $Property = '&$select=' + ($Property -join ',')
-            Write-Verbose "Transformed Property: $Property"
+            Write-Verbose "[COMMON]: - Transformed Property: $Property"
         }
 
         if ($null -ne $ExpandProperty) {
             $ExpandProperty = '&$expand=' + (
                 @(
-                    $ExpandProperty.GetEnumerator() | & {
+                    @($ExpandProperty).GetEnumerator() | & {
                         process {
                             if ($_ -is [string]) {
                                 $_
@@ -97,7 +99,7 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
                 ) -join ','
             )
 
-            Write-Verbose "Transformed ExpandProperty: $ExpandProperty"
+            Write-Verbose "[COMMON]: - Transformed ExpandProperty: $ExpandProperty"
         }
 
         $params = @{
@@ -183,3 +185,6 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
         }
     }
 }
+
+Get-Variable | Where-Object { $StartupVariables -notcontains $_.Name } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
+Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
