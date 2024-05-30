@@ -75,7 +75,6 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
 
         if ($null -ne $Property) {
             $Property = '&$select=' + ($Property -join ',')
-            Write-Verbose "[COMMON]: - Transformed Property: $Property"
         }
 
         if ($null -ne $ExpandProperty) {
@@ -98,8 +97,6 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
                     }
                 ) -join ','
             )
-
-            Write-Verbose "[COMMON]: - Transformed ExpandProperty: $ExpandProperty"
         }
 
         $params = @{
@@ -111,9 +108,6 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
                     @{
                         id      = 1
                         method  = 'GET'
-                        headers = @{
-                            'Cache-Control' = 'no-cache'
-                        }
                         url     = 'users?$filter={0}{1}{2}' -f $filter, $Property, $ExpandProperty
                     }
 
@@ -121,17 +115,14 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
                     @{
                         id      = 2
                         method  = 'GET'
-                        headers = @{
-                            'Cache-Control' = 'no-cache'
-                        }
                         url     = 'directory/deletedItems/microsoft.graph.user?$filter={0}{1}{2}' -f $filter, $Property, $ExpandProperty
                     }
                 )
             }
             OutputType  = 'PSObject'
             ErrorAction = 'Stop'
-            Verbose     = $false
-            Debug       = $false
+            Verbose     = $VerbosePreference
+            Debug       = $DebugPreference
         }
 
         $retryAfter = $null
