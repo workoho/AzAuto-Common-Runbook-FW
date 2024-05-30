@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.2
+.VERSION 1.0.3
 .GUID ac0280b2-7ee2-46bf-8a32-c1277189fb60
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.2 (2024-05-25)
-    - Fix Git cache for runbook files
+    Version 1.0.3 (2024-05-30)
+    - Add link to class SemanticVersionExtended
 #>
 
 <#
@@ -194,6 +194,9 @@ class AACRFSemanticVersion {
     <#
     .SYNOPSIS
         Represents a Semantic Version (SemVer).
+
+    .LINK
+        https://gist.github.com/jpawlowski/1c81fff8a55f5e368d831e60e235893c
     #>
     [int]$Major
     [int]$Minor
