@@ -12,7 +12,7 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-28)
+    Version 1.0.0 (2024-05-30)
     - Initial release.
 #>
 
@@ -34,36 +34,12 @@
 
 .PARAMETER Property
     The properties to return for the user.
-    If not specified, the following properties will be returned:
-    - displayName
-    - userPrincipalName
-    - onPremisesSamAccountName
-    - id
-    - accountEnabled
-    - createdDateTime
-    - deletedDateTime
-    - mail
-    - companyName
-    - department
-    - streetAddress
-    - city
-    - postalCode
-    - state
-    - country
-    - signInActivity
-    - onPremisesExtensionAttributes
 
-    Note that the signInActivity property is only available for users with an Entra ID Premium P1 license, and requires at least Reports Reader role when working with delegated permissions.
+    Note that when you request the signInActivity property, it is only available for users with an Entra ID Premium P1 license, and requires at least Reports Reader role when working with delegated permissions.
     You may use the Common_0003__Confirm-MgDirectoryRoleActiveAssignment.ps1 script in your runbook to check if the role is assigned.
 
-.PARAMETER ManagerProperty
-    The properties to return for the manager.
-    If not specified, the following properties will be returned:
-    - displayName
-    - userPrincipalName
-    - id
-    - accountEnabled
-    - mail
+.PARAMETER ExpandProperty
+    The user properties to expand.
 
 .NOTES
     This script is intended to be used as a child runbook in other runbooks and can not be run directly in Azure Automation for security reasons.
@@ -74,7 +50,7 @@ Param(
     [Parameter(Mandatory = $true)]
     [array] $UserId,
     [array] $Property,
-    [array] $ManagerProperty
+    [array] $ExpandProperty
 )
 
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
@@ -95,42 +71,33 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
             "userPrincipalName eq '$([System.Web.HttpUtility]::UrlEncode($_))'"
         }
 
-        if ($null -eq $Property) {
-            $Property = @(
-                'displayName'
-                'userPrincipalName'
-                'onPremisesSamAccountName'
-                'id'
-                'accountEnabled'
-                'createdDateTime'
-                'deletedDateTime'
-                'mail'
-                'companyName'
-                'department'
-                'streetAddress'
-                'city'
-                'postalCode'
-                'state'
-                'country'
-                'signInActivity'
-                'onPremisesExtensionAttributes'
-            ) -join ','
-        }
-        else {
-            $Property = $Property -join ','
+        if ($null -ne $Property) {
+            $Property = '&$select=' + ($Property -join ',')
+            Write-Verbose "Transformed Property: $Property"
         }
 
-        if ($null -eq $ManagerProperty) {
-            $ManagerProperty = @(
-                'displayName'
-                'userPrincipalName'
-                'id'
-                'accountEnabled'
-                'mail'
-            ) -join ','
-        }
-        else {
-            $ManagerProperty = $ManagerProperty -join ','
+        if ($null -ne $ExpandProperty) {
+            $ExpandProperty = '&$expand=' + (
+                @(
+                    $ExpandProperty.GetEnumerator() | & {
+                        process {
+                            if ($_ -is [string]) {
+                                $_
+                            }
+                            elseif ($_ -is [hashtable]) {
+                                $h = $_
+                                $_.Keys | & {
+                                    process {
+                                        '{0}($select={1})' -f $_, ($h.$_ -join ',')
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ) -join ','
+            )
+
+            Write-Verbose "Transformed ExpandProperty: $ExpandProperty"
         }
 
         $params = @{
@@ -145,7 +112,7 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
                         headers = @{
                             'Cache-Control' = 'no-cache'
                         }
-                        url     = 'users?$filter={0}&$select={1}&$expand=manager($select={2})' -f $filter, $Property, $ManagerProperty
+                        url     = 'users?$filter={0}{1}{2}' -f $filter, $Property, $ExpandProperty
                     }
 
                     # If not found, search in deleted items. We're using $filter here because fetching the user by Id would return an error if the user is not existing.
@@ -155,7 +122,7 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
                         headers = @{
                             'Cache-Control' = 'no-cache'
                         }
-                        url     = 'directory/deletedItems/microsoft.graph.user?$filter={0}&$select={1}&$expand=manager($select={2})' -f $filter, $Property, $ManagerProperty
+                        url     = 'directory/deletedItems/microsoft.graph.user?$filter={0}{1}{2}' -f $filter, $Property, $ExpandProperty
                     }
                 )
             }
