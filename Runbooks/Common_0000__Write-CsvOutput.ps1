@@ -125,13 +125,14 @@ try {
         ) 1> $null
 
         $params = @{
-            File           = $tempFile
-            Container      = $containerName
-            Blob           = $blobName
-            Context        = (New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount)
-            Force          = $true
-            Verbose        = $false
-            Debug          = $false
+            File        = $tempFile
+            Container   = $containerName
+            Blob        = $blobName
+            Context     = (New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount -ErrorAction Stop)
+            Force       = $true
+            ErrorAction = 'Stop'
+            Verbose     = $false
+            Debug       = $false
         }
         $null = Set-AzStorageBlobContent @params
         Write-Output "CSV file uploaded to $BlobStorageUri"
