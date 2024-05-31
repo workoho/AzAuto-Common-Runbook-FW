@@ -135,12 +135,12 @@ try {
             @{ Name = 'Az.Storage'; MinimumVersion = '3.0' }
         ) 1> $null
 
-        $context = if (-not [string]::IsNullOrEmpty($sasToken)) {
-            $sasToken = [System.Uri]::UnescapeDataString($sasToken)
-            $context = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken -ErrorAction Stop
+        if ([string]::IsNullOrEmpty($sasToken)) {
+            $context = New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount -ErrorAction Stop
         }
         else {
-            $context = New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount -ErrorAction Stop
+            $sasToken = [System.Uri]::UnescapeDataString($sasToken)
+            $context = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken -ErrorAction Stop
         }
 
         if ($storageType -eq 'blob') {
