@@ -118,7 +118,13 @@ function Convert-PropertyValues {
 try {
     if ($StorageUri) {
         $tempFile = [System.IO.Path]::GetTempFileName()
-        $InputObject | Convert-PropertyValues | ConvertTo-Csv @params | Out-File -FilePath $tempFile -Encoding UTF8
+        $streamWriter = New-Object System.IO.StreamWriter($tempFile, $false, [System.Text.Encoding]::UTF8)
+        try {
+            $InputObject | Convert-PropertyValues | ConvertTo-Csv @params | & { process { $streamWriter.WriteLine($_) } }
+        }
+        finally {
+            $streamWriter.Close()
+        }
 
         $uri = [System.Uri] $StorageUri
         $sasToken = $uri.Query.TrimStart('?')
