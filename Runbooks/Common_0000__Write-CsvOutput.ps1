@@ -135,6 +135,7 @@ try {
             Debug          = $false
         }
         $null = Set-AzStorageBlobContent @params
+        Write-Output "CSV file uploaded to $BlobStorageUri"
     }
     else {
         Write-Output $(
