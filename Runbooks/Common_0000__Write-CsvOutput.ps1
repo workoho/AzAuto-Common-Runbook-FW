@@ -157,7 +157,7 @@ try {
             $null = Set-AzStorageBlobContent @params
         }
         elseif ($storageType -eq 'file') {
-            if (-not $context.StorageAccount.Credentials.IsSASKey) {
+            if (-not $context.StorageAccount.Credentials.IsSAS) {
                 Throw "The storage type 'file' requires a SAS token in the StorageUri parameter."
             }
             $params = @{
