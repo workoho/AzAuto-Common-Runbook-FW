@@ -45,7 +45,8 @@
     The URI must be in the format 'https://<storage-account-name>.blob.core.windows.net/<container-name>/<blob-name>.csv' for blob storage
     or 'https://<storage-account-name>.file.core.windows.net/<share-name>/<file-name>.csv' for file storage.
 
-    Please note that the Azure Automation account's managed identity (or your developer account) must have the 'Storage Blob Data Contributor' role assigned to the storage account.
+    Please note that the Azure Automation account's managed identity (or your developer account) must have the 'Storage Blob Data Contributor' or
+    'Storage File Data SMB Share Contributor' role on the storage account, depending on the storage type.
     Remember that general Owner or Contributor roles are NOT sufficient for uploading blobs to a storage account.
 
     For information compliance reasons, consider to configure retention policies for the storage account and the blob container if you are uploading sensitive data like personal identifiable information (PII).
@@ -57,6 +58,10 @@
 .EXAMPLE
     PS> Common_0000__Write-CsvOutput.ps1 -InputObject $data -StorageUri 'https://mystorageaccount.blob.core.windows.net/mycontainer/myblob.csv'
     This example converts the $data object to CSV, and uploads it to the specified blob storage.
+
+.EXAMPLE
+    PS> Common_0000__Write-CsvOutput.ps1 -InputObject $data -StorageUri 'https://mystorageaccount.file.core.windows.net/myshare/myfile.csv?sastoken'
+    This example converts the $data object to CSV, and uploads it to the specified file storage.
 
 .NOTES
     This script is intended to be used as a child runbook in other runbooks and can not be run directly in Azure Automation for security reasons.
@@ -116,6 +121,7 @@ try {
         $InputObject | Convert-PropertyValues | ConvertTo-Csv @params | Out-File -FilePath $tempFile -Encoding UTF8
 
         $uri = [System.Uri] $StorageUri
+        $sasToken = $uri.Query.TrimStart('?')
         $hostParts = $uri.Host.Split('.')
         $storageAccountName = $hostParts[0]
         $storageType = $hostParts[1]
@@ -129,12 +135,20 @@ try {
             @{ Name = 'Az.Storage'; MinimumVersion = '3.0' }
         ) 1> $null
 
+        $context = if (-not [string]::IsNullOrEmpty($sasToken)) {
+            $sasToken = [System.Uri]::UnescapeDataString($sasToken)
+            $context = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken -ErrorAction Stop
+        }
+        else {
+            $context = New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount -ErrorAction Stop
+        }
+
         if ($storageType -eq 'blob') {
             $params = @{
                 File        = $tempFile
                 Container   = $containerName
                 Blob        = $filePath
-                Context     = (New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount -ErrorAction Stop)
+                Context     = $context
                 Force       = $true
                 ErrorAction = 'Stop'
                 Verbose     = $false
@@ -143,11 +157,14 @@ try {
             $null = Set-AzStorageBlobContent @params
         }
         elseif ($storageType -eq 'file') {
+            if ([string]::IsNullOrEmpty($sasToken)) {
+                Throw "The storage type 'file' requires a SAS token in the StorageUri parameter."
+            }
             $params = @{
                 Source      = $tempFile
                 ShareName   = $containerName
                 Path        = $filePath
-                Context     = (New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount -ErrorAction Stop)
+                Context     = $context
                 Force       = $true
                 ErrorAction = 'Stop'
                 Verbose     = $false
