@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.1.1
 .GUID fd95f377-4c0a-4dfa-addd-14cf6dca99cf
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-05-19)
-    - Added support for converting date properties to ISO8601 string for PowerShell 5.1
+    Version 1.1.1 (2024-05-31)
+    - Add error handling
 #>
 
 <#
@@ -87,18 +87,23 @@ function Convert-DatePropertiesToISO8601String {
         }
     }
 }
+try {
+    if ($PSVersionTable.PSVersion.Major -lt 7) {
+        Convert-DatePropertiesToISO8601String -InputObject $InputObject
+    }
 
-if ($PSVersionTable.PSVersion.Major -lt 7) {
-    Convert-DatePropertiesToISO8601String -InputObject $InputObject
+    $params = if ($ConvertToParam) { $ConvertToParam.Clone() } else { @{} }
+    if ($null -eq $params.Compress) {
+        $params.Compress = $true
+        if ($VerbosePreference -eq 'Continue') { $params.Compress = $false }
+    }
+    if ($null -eq $params.Depth) { $params.Depth = 100 }
+
+    Write-Output $($InputObject | ConvertTo-Json @params)
 }
+catch {
+    Throw $_.Exception.Message
 
-$params = if ($ConvertToParam) { $ConvertToParam.Clone() } else { @{} }
-if ($null -eq $params.Compress) {
-    $params.Compress = $true
-    if ($VerbosePreference -eq 'Continue') { $params.Compress = $false }
 }
-if ($null -eq $params.Depth) { $params.Depth = 100 }
-
-Write-Output $($InputObject | ConvertTo-Json @params)
 
 # Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
