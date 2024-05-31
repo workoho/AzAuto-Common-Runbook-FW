@@ -130,7 +130,6 @@ try {
             Blob           = $blobName
             Context        = (New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount)
             Force          = $true
-            ProgressAction = 'SilentlyContinue'
             Verbose        = $false
             Debug          = $false
         }
