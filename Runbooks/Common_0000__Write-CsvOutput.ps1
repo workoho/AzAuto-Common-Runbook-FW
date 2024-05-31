@@ -22,7 +22,7 @@
 
 .DESCRIPTION
     This script is used to write text in CSV format to the output stream. It takes an input object and converts it to CSV using the ConvertTo-Csv cmdlet.
-    The converted CSV is then written to the output stream, or uploaded to a blob storage if the BlobStorageUri parameter is specified.
+    The converted CSV is then written to the output stream, or uploaded to a blob storage if the StorageUri parameter is specified.
 
 .PARAMETER InputObject
     Specifies the object to be converted to CSV.
@@ -37,10 +37,13 @@
 .PARAMETER BooleanFalseValue
     Specifies the value to be used for boolean false values. Default is '0'.
 
-.PARAMETER BlobStorageUri
-    Specifies the URI of the blob storage where the CSV file should be uploaded.
-    If this parameter is specified, the CSV file will be uploaded to the specified blob storage.
+.PARAMETER StorageUri
+    Specifies the URI of the storage where the CSV file should be uploaded.
+    If this parameter is specified, the CSV file will be uploaded to the specified storage.
     If this parameter is not specified, the CSV file will be written to the output stream.
+
+    The URI must be in the format 'https://<storage-account-name>.blob.core.windows.net/<container-name>/<blob-name>.csv' for blob storage
+    or 'https://<storage-account-name>.file.core.windows.net/<share-name>/<file-name>.csv' for file storage.
 
     Please note that the Azure Automation account's managed identity (or your developer account) must have the 'Storage Blob Data Contributor' role assigned to the storage account.
     Remember that general Owner or Contributor roles are NOT sufficient for uploading blobs to a storage account.
@@ -52,7 +55,7 @@
     This example converts the $data object to CSV, and writes it to the output stream.
 
 .EXAMPLE
-    PS> Common_0000__Write-CsvOutput.ps1 -InputObject $data -BlobStorageUri 'https://mystorageaccount.blob.core.windows.net/mycontainer/myblob.csv'
+    PS> Common_0000__Write-CsvOutput.ps1 -InputObject $data -StorageUri 'https://mystorageaccount.blob.core.windows.net/mycontainer/myblob.csv'
     This example converts the $data object to CSV, and uploads it to the specified blob storage.
 
 .NOTES
@@ -67,7 +70,7 @@ Param(
     [hashtable] $ConvertToParam,
     [string] $BooleanTrueValue = '1',
     [string] $BooleanFalseValue = '0',
-    [string] $BlobStorageUri
+    [string] $StorageUri
 )
 
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
@@ -108,34 +111,55 @@ function Convert-PropertyValues {
 }
 
 try {
-    if ($BlobStorageUri) {
+    if ($StorageUri) {
         $tempFile = [System.IO.Path]::GetTempFileName()
         $InputObject | Convert-PropertyValues | ConvertTo-Csv @params | Out-File -FilePath $tempFile -Encoding UTF8
 
-        $uri = [System.Uri] $BlobStorageUri
-        $storageAccountName = $uri.Host.Split('.')[0]
+        $uri = [System.Uri] $StorageUri
+        $hostParts = $uri.Host.Split('.')
+        $storageAccountName = $hostParts[0]
+        $storageType = $hostParts[1]
         $pathParts = $uri.AbsolutePath.Split('/')
         $containerName = $pathParts[1]
-        $blobName = $pathParts[2]
-        if ([string]::IsNullOrEmpty($blobName)) { $blobName = [System.IO.Path]::GetFileNameWithoutExtension($tempFile) }
-        if (-not $blobName.EndsWith('.csv')) { $blobName += '.csv' }
+        $filePath = $pathParts[2..($pathParts.Length - 1)] -join '/'
+        if ([string]::IsNullOrEmpty($filePath)) { $filePath = [System.IO.Path]::GetFileNameWithoutExtension($tempFile) }
+        if (-not $filePath.EndsWith('.csv')) { $filePath += '.csv' }
 
         ./Common_0000__Import-Module.ps1 -Modules @(
             @{ Name = 'Az.Storage'; MinimumVersion = '3.0' }
         ) 1> $null
 
-        $params = @{
-            File        = $tempFile
-            Container   = $containerName
-            Blob        = $blobName
-            Context     = (New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount -ErrorAction Stop)
-            Force       = $true
-            ErrorAction = 'Stop'
-            Verbose     = $false
-            Debug       = $false
+        if ($storageType -eq 'blob') {
+            $params = @{
+                File        = $tempFile
+                Container   = $containerName
+                Blob        = $filePath
+                Context     = (New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount -ErrorAction Stop)
+                Force       = $true
+                ErrorAction = 'Stop'
+                Verbose     = $false
+                Debug       = $false
+            }
+            $null = Set-AzStorageBlobContent @params
         }
-        $null = Set-AzStorageBlobContent @params
-        Write-Output "CSV file uploaded to $BlobStorageUri"
+        elseif ($storageType -eq 'file') {
+            $params = @{
+                Source      = $tempFile
+                ShareName   = $containerName
+                Path        = $filePath
+                Context     = (New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount -ErrorAction Stop)
+                Force       = $true
+                ErrorAction = 'Stop'
+                Verbose     = $false
+                Debug       = $false
+            }
+            $null = Set-AzStorageFileContent @params
+        }
+        else {
+            throw "Invalid storage type '$storageType'. The storage type must be 'blob' or 'file."
+        }
+
+        Write-Output "CSV file uploaded to $StorageUri"
     }
     else {
         Write-Output $(
