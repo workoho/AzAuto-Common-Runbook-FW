@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.1.0
 .GUID 6d840940-e0fe-4de7-80ad-c6d3d495d695
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-05-30)
-    - Initial release.
+    Version 1.1.0 (2024-06-01)
+    - Add support for onPremisesSamAccountName as user ID.
 #>
 
 <#
@@ -30,7 +30,7 @@
 
 .PARAMETER UserId
     The user ID or user principal name of the user to search for.
-    May be an array, or a comma-separated string of object IDs or user principal names.
+    May be an array, or a comma-separated string of object ID, user principal name, or onPremisesSamAccountName.
 
 .PARAMETER Property
     The properties to return for the user.
@@ -69,8 +69,11 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
         $filter = if ($_ -match '^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$') {
             "id eq '$_'"
         }
-        else {
+        elseif ($_ -contains '@') {
             "userPrincipalName eq '$([System.Web.HttpUtility]::UrlEncode($_))'"
+        }
+        else {
+            "onPremisesSamAccountName eq '$_'"
         }
 
         if ($null -ne $Property) {
@@ -106,16 +109,16 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
                 requests = [System.Collections.ArrayList] @(
                     # First, search in existing users. We're using $filter here because fetching the user by Id would return an error if the user is soft-deleted or not existing.
                     @{
-                        id      = 1
-                        method  = 'GET'
-                        url     = 'users?$filter={0}{1}{2}' -f $filter, $Property, $ExpandProperty
+                        id     = 1
+                        method = 'GET'
+                        url    = 'users?$filter={0}{1}{2}' -f $filter, $Property, $ExpandProperty
                     }
 
                     # If not found, search in deleted items. We're using $filter here because fetching the user by Id would return an error if the user is not existing.
                     @{
-                        id      = 2
-                        method  = 'GET'
-                        url     = 'directory/deletedItems/microsoft.graph.user?$filter={0}{1}{2}' -f $filter, $Property, $ExpandProperty
+                        id     = 2
+                        method = 'GET'
+                        url    = 'directory/deletedItems/microsoft.graph.user?$filter={0}{1}{2}' -f $filter, $Property, $ExpandProperty
                     }
                 )
             }
