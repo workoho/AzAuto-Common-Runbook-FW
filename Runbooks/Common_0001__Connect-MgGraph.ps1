@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.2
+.VERSION 1.1.0
 .GUID 05273e10-2a70-42aa-82d3-7881324beead
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,10 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.2 (2024-05-24)
-    - Throw exception with invalid or empty tenant ID
+    Version 1.1.0 (2024-06-04)
+    - Remove dependency to Microsoft.Graph.Users module.
+    - Make sure that Connect-AzAccount is called before connecting to Microsoft Graph to avoid conflicts with the Microsoft Graph modules in PowerShell 5.1.
+    - Refactoring and cleanup.
 #>
 
 <#
@@ -56,6 +58,10 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
 Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
+# It is important to run Connect-AzAccount first to avoid conflicts with the Microsoft Graph modules in PowerShell 5.1
+# See https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/2148#issuecomment-1637535115
+./Common_0001__Connect-AzAccount.ps1
+
 ./Common_0000__Import-Module.ps1 -Modules @(
     @{ Name = 'Microsoft.Graph.Authentication'; MinimumVersion = '2.0'; MaximumVersion = '2.65535' }
 ) 1> $null
@@ -89,24 +95,29 @@ if ($TenantId) {
     }
     $params.TenantId = $TenantId
 }
+
 if (
     -Not (Get-MgContext) -or
-    $params.TenantId -ne (Get-MgContext).TenantId
+    (
+        $null -ne $params.TenantId -and
+        $params.TenantId -ne (Get-MgContext).TenantId
+    )
 ) {
     if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.JobId) {
         Write-Verbose '[COMMON]: - Using system-assigned Managed Service Identity'
         $params.Identity = $true
     }
-    elseif ($Scopes) {
-        Write-Verbose '[COMMON]: - Using interactive sign in'
-        $params.Scopes = $Scopes
-    }
-
-    if (
+    elseif (
         $env:GITHUB_CODESPACE_TOKEN -or
         $env:AWS_CLOUD9_USER
     ) {
+        Write-Verbose '[COMMON]: - Using device code authentication'
         $params.UseDeviceCode = $true
+        if ($Scopes) { $params.Scopes = $Scopes }
+    }
+    else {
+        Write-Verbose '[COMMON]: - Using interactive sign in'
+        if ($Scopes) { $params.Scopes = $Scopes }
     }
 
     try {
@@ -119,7 +130,7 @@ if (
         }
     }
     catch {
-        Write-Error $_.Exception.Message -ErrorAction Stop
+        Write-Error "Microsoft Graph connection error: $($_.Exception.Message)" -ErrorAction Stop
         exit
     }
 }
@@ -159,52 +170,35 @@ if ($MissingScopes) {
     }
 }
 
-try {
-    $Principal = $null
+if (
+    [string]::IsNullOrEmpty($env:MG_PRINCIPAL_ID) -or
+    [string]::IsNullOrEmpty($env:MG_PRINCIPAL_DISPLAYNAME)
+) {
+    try {
+        $Context = Get-MgContext -ErrorAction Stop -Verbose:$false
 
-    if ((Get-Module).Name -match 'Microsoft.Graph.Beta') {
-        if ((Get-MgContext).AuthType -eq 'Delegated') {
-            ./Common_0000__Import-Module.ps1 -Modules @(
-                @{ Name = 'Microsoft.Graph.Beta.Users'; MinimumVersion = '2.0'; MaximumVersion = '2.65535' }
-            ) 1> $null
-
+        if ($Context.AuthType -eq 'Delegated') {
             [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_TYPE', 'Delegated')
-            $Principal = Get-MgBetaUser -UserId (Get-MgContext).Account -ErrorAction Stop -Verbose:$false
+            Write-Verbose "[COMMON]: - Getting user details for $($Context.Account) ..."
+            $Principal = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/users/$($Context.Account)?`$select=id,displayName" -ErrorAction Stop -Verbose:$false
         }
         else {
-            ./Common_0000__Import-Module.ps1 -Modules @(
-                @{ Name = 'Microsoft.Graph.Beta.Applications'; MinimumVersion = '2.0'; MaximumVersion = '2.65535' }
-            ) 1> $null
-
             [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_TYPE', 'Application')
-            $Principal = Get-MgBetaServicePrincipalByAppId -AppId (Get-MgContext).ClientId -ErrorAction Stop -Verbose:$false
+            Write-Verbose "[COMMON]: - Getting service principal details for $($Context.ClientId) ..."
+            $Principal = (Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/servicePrincipals?`$select=id,displayName&`$filter=appId eq '$($Context.ClientId)'" -ErrorAction Stop -Verbose:$false).Value[0]
         }
+
+        Write-Verbose "[COMMON]: - Setting environment MG_PRINCIPAL_ID to '$($Principal.Id)' and MG_PRINCIPAL_DISPLAYNAME to '$($Principal.DisplayName)' ..."
+        [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_ID', $Principal.Id)
+        [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_DISPLAYNAME', $Principal.DisplayName)
+
+        # As we now know our principal, we can read out all the details about the Automation Account and its managed identity
+        ./Common_0001__Connect-AzAccount.ps1 -SetEnvVarsAfterMgConnect $true
     }
-    else {
-        if ((Get-MgContext).AuthType -eq 'Delegated') {
-            ./Common_0000__Import-Module.ps1 -Modules @(
-                @{ Name = 'Microsoft.Graph.Users'; MinimumVersion = '2.0'; MaximumVersion = '2.65535' }
-            ) 1> $null
-
-            [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_TYPE', 'Delegated')
-            $Principal = Get-MgUser -UserId (Get-MgContext).Account -ErrorAction Stop -Verbose:$false
-        }
-        else {
-            ./Common_0000__Import-Module.ps1 -Modules @(
-                @{ Name = 'Microsoft.Graph.Applications'; MinimumVersion = '2.0'; MaximumVersion = '2.65535' }
-            ) 1> $null
-
-            [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_TYPE', 'Application')
-            $Principal = Get-MgServicePrincipalByAppId -AppId (Get-MgContext).ClientId -ErrorAction Stop -Verbose:$false
-        }
+    catch {
+        Write-Error $_.Exception.Message -ErrorAction Stop
+        exit
     }
-
-    [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_ID', $Principal.Id)
-    [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_DISPLAYNAME', $Principal.DisplayName)
-}
-catch {
-    Write-Error $_.Exception.Message -ErrorAction Stop
-    exit
 }
 
 Get-Variable | Where-Object { $StartupVariables -notcontains $_.Name } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
