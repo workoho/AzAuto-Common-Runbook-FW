@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID 7086a21d-f021-4f05-99a7-ec2a6de6f749
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-05-30)
-    - Initial release.
+    Version 1.0.1 (2024-06-04)
+    - Remove SAS token from output when uploading to Azure Storage
 #>
 
 <#
@@ -182,7 +182,7 @@ try {
             throw "Invalid storage type '$storageType'. The storage type must be 'blob' or 'file."
         }
 
-        Write-Output "CSV file uploaded to $StorageUri"
+        Write-Output "CSV file uploaded to $($uri.GetLeftPart([System.UriPartial]::Path))"
     }
     else {
         Write-Output $(
