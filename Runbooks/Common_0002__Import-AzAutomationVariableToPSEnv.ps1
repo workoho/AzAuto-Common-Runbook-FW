@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.1
+.VERSION 1.3.0
 .GUID 05a03d22-11a6-4114-8241-6e02a66d00fc
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,9 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.1 (2024-05-23)
-    - Throw exception in case automation variables could not be retrieved after 5 attempts.
-    - Fix setups where only a single automation variable is imported.
+    Version 1.3.0 (2024-06-06)
+    - Use Invoke-AzRestMethod
 #>
 
 <#
@@ -49,28 +48,28 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
 Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
-if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.JobId) {
+try {
+    if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.JobId) {
 
-    #region [COMMON] CONNECTIONS ---------------------------------------------------
-    ./Common_0001__Connect-AzAccount.ps1
-    #endregion ---------------------------------------------------------------------
+        #region [COMMON] CONNECTIONS ---------------------------------------------------
+        # Implicitly connect to Azure Graph API using the Common_0001__Connect-MgGraph.ps1 script.
+        # This will ensure the connections are established in the correct order, while still retrieving the necessary environment variables.
+        ./Common_0001__Connect-MgGraph.ps1
+        #endregion ---------------------------------------------------------------------
 
-    try {
-        if ([string]::IsNullOrEmpty($env:AZURE_AUTOMATION_ResourceGroupName)) {
-            Throw 'Missing environment variable $env:AZURE_AUTOMATION_ResourceGroupName'
-        }
-        elseif ([string]::IsNullOrEmpty($env:AZURE_AUTOMATION_AccountName)) {
-            Throw 'Missing environment variable $env:AZURE_AUTOMATION_AccountName'
+        if ([string]::IsNullOrEmpty($env:AZURE_AUTOMATION_AccountId)) {
+            Throw 'Missing environment variable $env:AZURE_AUTOMATION_AccountId'
         }
         else {
             $retryCount = 0
             $success = $false
             $AutomationVariables = $null
             $lastError = $null
+            $apiVersion = '2023-11-01'
 
             while (-not $success -and $retryCount -lt 5) {
                 try {
-                    $AutomationVariables = @(Get-AzAutomationVariable -ResourceGroupName $env:AZURE_AUTOMATION_ResourceGroupName -AutomationAccountName $env:AZURE_AUTOMATION_AccountName -Verbose:$false -ErrorAction Stop)
+                    $AutomationVariables = @(((Az.Accounts\Invoke-AzRestMethod -Method Get -Path "$($env:AZURE_AUTOMATION_AccountId)/variables?api-version=$apiVersion" -ErrorAction Stop).Content | ConvertFrom-Json).Value)
                     $success = $true
                 }
                 catch {
@@ -84,58 +83,58 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                 throw "Failed to get automation variables after 5 attempts. Last error: $lastError"
             }
         }
-    }
-    catch {
-        Throw $_
-    }
 
-    $AutomationVariables | & {
-        process {
-            if (($null -ne $script:Variable) -and ($_.Name -notin $script:Variable)) { return }
-            if ($_.Encrypted) {
-                # Get-AutomationVariable is an internal cmdlet that is not available in the Az module.
-                # It is part of the Automation internal module Orchestrator.AssetManagement.Cmdlets.
-                # https://learn.microsoft.com/en-us/azure/automation/shared-resources/modules#internal-cmdlets
-                $_.Value = Get-AutomationVariable -Name $_.Name
-            }
-            if (
-                $_.Value.GetType().Name -ne 'String' -and
-                $_.Value.GetType().Name -ne 'Boolean'
-            ) {
-                Write-Verbose "[COMMON]: - SKIPPING $($_.Name) because it is not a String or Boolean but '$($_.Value.GetType().Name)'"
-                return
-            }
-            if ($_.Value.GetType().Name -eq 'Boolean') {
-                Write-Verbose "[COMMON]: - Setting `$env:$($_.Name) as boolean string"
-                if ($_.Value -eq $true) {
-                    [Environment]::SetEnvironmentVariable($_.Name, 'True')
+        $AutomationVariables | & {
+            process {
+                if ($_.Name -notmatch '^[a-zA-Z_][a-zA-Z0-9_]*$') {
+                    Write-Warning "[COMMON]: - Skipping variable '$($_.Name)' because its name contains invalid characters, starts with a digit, or contains a space."
+                    return
+                }
+                if (($null -ne $script:Variable) -and ($_.Name -notin $script:Variable)) { return }
+                if ($_.properties.isEncrypted) {
+                    # Get-AutomationVariable is an internal cmdlet that is not available in the Az module.
+                    # It is part of the Automation internal module Orchestrator.AssetManagement.Cmdlets.
+                    # https://learn.microsoft.com/en-us/azure/automation/shared-resources/modules#internal-cmdlets
+                    $_.properties.value = Orchestrator.AssetManagement.Cmdlets\Get-AutomationVariable -Name $_.Name
+                }
+                $_.properties.value = $_.properties.value.Trim('"')
+
+                if ($_.properties.value -eq 'true' -or $_.properties.value -eq 'false') {
+                    Write-Verbose "[COMMON]: - Setting `$env:$($_.Name) as boolean string value"
+                    if ($_.properties.value -eq 'true') {
+                        [Environment]::SetEnvironmentVariable($_.Name, 'True')
+                    }
+                    else {
+                        [Environment]::SetEnvironmentVariable($_.Name, 'False')
+                    }
+                }
+                elseif ([string]::new($_.properties.value).Length -gt 32767) {
+                    Write-Verbose "[COMMON]: - SKIPPING variable '$($_.Name)' because it is too long"
+                }
+                elseif ([string]::new($_.properties.value) -eq '') {
+                    Write-Verbose "[COMMON]: - Setting `$env:$($_.Name) as empty string value"
+                    [Environment]::SetEnvironmentVariable($_.Name, "''")
                 }
                 else {
-                    [Environment]::SetEnvironmentVariable($_.Name, 'False')
+                    Write-Verbose "[COMMON]: - Setting `$env:$($_.Name) as string value"
+                    [Environment]::SetEnvironmentVariable($_.Name, $_.properties.value)
                 }
             }
-            elseif ([string]::new($_.Value).Length -gt 32767) {
-                Write-Verbose "[COMMON]: - SKIPPING $($_.Name) because it is too long"
-            }
-            elseif ([string]::new($_.Value) -eq '') {
-                Write-Verbose "[COMMON]: - Setting `$env:$($_.Name) as empty string"
-                [Environment]::SetEnvironmentVariable($_.Name, "''")
-            }
-            else {
-                Write-Verbose "[COMMON]: - Setting `$env:$($_.Name)"
-                [Environment]::SetEnvironmentVariable($_.Name, [string]::new($_.Value))
-            }
+        }
+        Write-Verbose "[COMMON]: - Successfully imported automation variables to PowerShell environment variables"
+    }
+    else {
+        Write-Verbose "[COMMON]: - Running in local environment"
+        if (Test-Path -Path "$PSScriptRoot/../scripts/AzAutoFWProject/Set-AzAutomationVariableAsPSEnv.ps1") {
+            & "$PSScriptRoot/../scripts/AzAutoFWProject/Set-AzAutomationVariableAsPSEnv.ps1" -Variable $Variable -Verbose:$VerbosePreference
+        }
+        else {
+            Write-Warning "[COMMON]: - Set-AzAutomationVariableAsPSEnv.ps1 not found in $PSScriptRoot/../scripts/AzAutoFWProject"
         }
     }
 }
-else {
-    Write-Verbose "[COMMON]: - Running in local environment"
-    if (Test-Path -Path "$PSScriptRoot/../scripts/AzAutoFWProject/Set-AzAutomationVariableAsPSEnv.ps1") {
-        & "$PSScriptRoot/../scripts/AzAutoFWProject/Set-AzAutomationVariableAsPSEnv.ps1" -Variable $Variable -Verbose:$VerbosePreference
-    }
-    else {
-        Write-Warning "[COMMON]: - Set-AzAutomationVariableAsPSEnv.ps1 not found in $PSScriptRoot/../scripts/AzAutoFWProject"
-    }
+catch {
+    Throw $_
 }
 
 Get-Variable | Where-Object { $StartupVariables -notcontains $_.Name } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
