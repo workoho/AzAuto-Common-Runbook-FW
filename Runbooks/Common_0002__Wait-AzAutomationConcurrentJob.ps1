@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.2
+.VERSION 1.3.0
 .GUID 7c2ab51e-4863-474e-bfcf-6854d3c3a688
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.2 (2024-05-27)
-    - Remove timestamp from queue status messages.
+    Version 1.3.0 (2024-06-06)
+    - Use Invoke-AzRestMethod
 #>
 
 <#
@@ -42,7 +42,9 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
 if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.JobId) {
 
     #region [COMMON] CONNECTIONS ---------------------------------------------------
-    ./Common_0001__Connect-AzAccount.ps1
+    # Implicitly connect to Azure Graph API using the Common_0001__Connect-MgGraph.ps1 script.
+    # This will ensure the connections are established in the correct order, while still retrieving the necessary environment variables.
+    ./Common_0001__Connect-MgGraph.ps1
     #endregion ---------------------------------------------------------------------
 
     if ([string]::IsNullOrEmpty($env:AZURE_AUTOMATION_ResourceGroupName)) {
@@ -71,7 +73,7 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
 
             try {
                 # Get all jobs for the runbook and process using pipeline to avoid memory issues
-                Get-AzAutomationJob -ResourceGroupName $env:AZURE_AUTOMATION_ResourceGroupName -AutomationAccountName $env:AZURE_AUTOMATION_AccountName -RunbookName $env:AZURE_AUTOMATION_RUNBOOK_Name -ErrorAction Stop -Verbose:$false |
+                ((Az.Accounts\Invoke-AzRestMethod -Method Get -Path "$($env:AZURE_AUTOMATION_AccountId)/jobs?api-version=2023-11-01" -ErrorAction Stop -Verbose:$false -Debug:$false).Content | ConvertFrom-Json).value.properties |
                 & {
                     process {
                         if (
@@ -83,8 +85,8 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                         ) {
                             [void] $activeJobs.Add(
                                 @{
-                                    JobId        = $_.JobId
-                                    CreationTime = $_.CreationTime
+                                    jobId        = $_.jobId
+                                    creationTime = [DateTime]::Parse($_.creationTime).ToUniversalTime()
                                 }
                             )
                         }
@@ -95,8 +97,8 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                 Throw $_
             }
 
-            $activeJobs = @($activeJobs | Sort-Object -Property CreationTime)
-            $currentJob = $activeJobs | Where-Object { $_.JobId -eq $PSPrivateMetadata.JobId }
+            $activeJobs = @($activeJobs | Sort-Object -Property creationTime)
+            $currentJob = $activeJobs | Where-Object { $_.jobId -eq $PSPrivateMetadata.JobId }
 
             if ($null -eq $currentJob) {
                 $waitTime = $((Get-Random -Minimum (3000 / $WaitStep) -Maximum (8000 / $WaitStep)) * $WaitStep)
@@ -104,7 +106,7 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                 Write-Warning "[INFO]: - Current job not found (yet) in the list of active jobs. Waiting for $waitTimeInSeconds seconds to appear."
                 Start-Sleep -Milliseconds $waitTime
             }
-            elseif ($currentJob.JobId -eq $activeJobs[0].JobId) {
+            elseif ($currentJob.jobId -eq $activeJobs[0].jobId) {
                 Write-Verbose "[INFO]: - Current job is at the top of the queue."
                 $DoLoop = $false
                 $return = $true
@@ -121,7 +123,7 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
                 $warningCounter += $waitTimeInSeconds
                 $rank = 1
                 for ($i = 0; $i -lt $activeJobs.Length; $i++) {
-                    if ($activeJobs[$i].jobId -eq $currentJob.JobId) {
+                    if ($activeJobs[$i].jobId -eq $currentJob.jobId) {
                         $rank = $i + 1
                         break
                     }
