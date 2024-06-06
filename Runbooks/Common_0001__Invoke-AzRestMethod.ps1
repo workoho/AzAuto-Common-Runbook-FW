@@ -1,6 +1,6 @@
 <#PSScriptInfo
 .VERSION 1.0.0
-.GUID 8dd55dbd-59a8-482e-b2ca-560259d791a4
+.GUID 0a0e5eb3-0470-427e-b264-9bab18f90617
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
 .COPYRIGHT © 2024 Workoho GmbH
@@ -12,24 +12,24 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-28)
+    Version 1.0.0 (2024-06-06)
     - Initial release.
 #>
 
 <#
 .SYNOPSIS
-    Wrapper for Invoke-MgGraphRequest to add retries for rate limiting and service unavailable errors.
+    Wrapper for Invoke-AzRestMethod to add retries for rate limiting and service unavailable errors.
 
 .DESCRIPTION
-    This script is a wrapper for the Invoke-MgGraphRequest script to add retries in case of rate limiting or service unavailable errors.
+    This script is a wrapper for the Invoke-AzRestMethod script to add retries in case of rate limiting or service unavailable errors.
     The script will retry the request up to 5 times with an exponential backoff strategy. The script will also handle the Retry-After header for rate limiting errors.
     Note that when using batch requests, each response must be checked for rate limiting separately as this script only handles this for the batch request itself.
 
 .PARAMETER Params
-    The parameters to pass to the Invoke-MgGraphRequest cmdlet using splatting.
+    The parameters to pass to the Invoke-AzRestMethod cmdlet using splatting.
 
 .OUTPUTS
-    The response from the Microsoft Graph REST API request.
+    The response from the Azure REST API request.
 
 .NOTES
     This script is intended to be used as a child runbook in other runbooks and can not be run directly in Azure Automation for security reasons.
@@ -49,9 +49,16 @@ $maxRetries = 5
 $retryCount = 0
 $baseWaitTime = 1 # start with 1 second
 
+if ($Params.Payload -is [System.Collections.IEnumerable]) {
+    $Params.Payload = $Params.Payload | ConvertTo-Json -Depth 10
+}
+
 do {
     try {
-        $response = Invoke-MgGraphRequest @Params
+        $response = Az.Accounts\Invoke-AzRestMethod @Params
+        if (-not [string]::IsNullOrEmpty($response.Content)) {
+            $response | Add-Member -NotePropertyName 'Content' -NotePropertyValue $($response.Content | ConvertFrom-Json -Depth 10) -Force
+        }
         $rateLimitExceeded = $false
     }
     catch {

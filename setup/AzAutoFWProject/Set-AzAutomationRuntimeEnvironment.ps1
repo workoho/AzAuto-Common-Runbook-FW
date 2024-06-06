@@ -36,7 +36,7 @@
     This example sets up the 'Dev' runtime environment and installs 'Package1' in the Azure Automation account.
 #>
 
-#Requires -Module @{ ModuleName='Az.Accounts'; ModuleVersion='2.16.0' }
+#Requires -Module @{ ModuleName='Az.Accounts'; ModuleVersion='3.0.0' }
 #Requires -Module @{ ModuleName='Az.Resources'; ModuleVersion='6.16.0' }
 #Requires -Module @{ ModuleName='Az.Automation'; ModuleVersion='1.10.0' }
 
@@ -166,7 +166,7 @@ try {
         }
     }
     if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
-    $null = .\Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams
+    $null = ./Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams
 }
 catch {
     Write-Error "Insufficent Azure permissions: At least 'Reader' role for the Automation Account is required to validate runtime environments. Further permissions may be required to perform changes." -ErrorAction Stop
@@ -184,16 +184,15 @@ try {
     Push-Location
     Set-Location (Join-Path $config.Project.Directory 'Runbooks')
     $params = @{
-        ResourceGroupName = $automationAccount.ResourceGroupName
-        Provider          = 'Microsoft.Automation'
-        ResourceType      = 'automationAccounts'
-        ResourceName      = $automationAccount.AutomationAccountName
-        SubResourceUri    = 'runtimeEnvironments'
-        ApiVersion        = $AzApiVersion
-        Method            = 'Get'
+        ResourceGroupName    = $automationAccount.ResourceGroupName
+        Name                 = $automationAccount.AutomationAccountName
+        ResourceProviderName = 'Microsoft.Automation'
+        ResourceType         = 'automationAccounts', 'runtimeEnvironments'
+        ApiVersion           = $AzApiVersion
+        Method               = 'GET'
     }
     if ($commonBoundParameters) { $params += $commonBoundParameters }
-    $runtimeEnvironments = (.\Common_0002__Invoke-AzRequest.ps1 @params).Value
+    $runtimeEnvironments = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value
 }
 catch {
     Write-Error $_.Exception.Message -ErrorAction Stop
@@ -254,7 +253,7 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                                     }
                                 }
                                 if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
-                                if (-not $ConfirmedAzPermission) { $null = .\Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams; $ConfirmedAzPermission = $true }
+                                if (-not $ConfirmedAzPermission) { $null = ./Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams; $ConfirmedAzPermission = $true }
                             }
                             catch {
                                 Write-Error "Insufficent Azure permissions: At least 'Automation Contributor' role for the Automation Account is required to setup automation runtime environments." -ErrorAction Stop
@@ -379,7 +378,7 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                                 }
                             }
                             if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
-                            if (-not $ConfirmedAzPermission) { $null = .\Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams; $ConfirmedAzPermission = $true }
+                            if (-not $ConfirmedAzPermission) { $null = ./Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams; $ConfirmedAzPermission = $true }
                         }
                         catch {
                             Write-Error "Insufficent Azure permissions: At least 'Automation Contributor' role for the Automation Account is required to setup automation runtime environments." -ErrorAction Stop
@@ -392,14 +391,13 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                         #endregion
 
                         $params = @{
-                            ResourceGroupName = $automationAccount.ResourceGroupName
-                            Provider          = 'Microsoft.Automation'
-                            ResourceType      = 'automationAccounts'
-                            ResourceName      = $automationAccount.AutomationAccountName
-                            SubResourceUri    = "runtimeEnvironments/$($_.Key)"
-                            ApiVersion        = $AzApiVersion
-                            Method            = if (-not $runtimeEnvironment) { 'Put' } else { 'Patch' }
-                            Body              = @{
+                            ResourceGroupName    = $automationAccount.ResourceGroupName
+                            Name                 = $automationAccount.AutomationAccountName, $_.Key
+                            ResourceProviderName = 'Microsoft.Automation'
+                            ResourceType         = 'automationAccounts', 'runtimeEnvironments'
+                            ApiVersion           = $AzApiVersion
+                            Method               = if (-not $runtimeEnvironment) { 'PUT' } else { 'PATCH' }
+                            Payload              = @{
                                 properties = @{
                                     runtime         = @{
                                         language = $_.Value.Runtime.Language
@@ -410,7 +408,7 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                                 name       = $_.Key
                             }
                         }
-                        if (-not [string]::IsNullOrEmpty($_.Value.Description)) { $params.Body.properties.description = $_.Value.Description }
+                        if (-not [string]::IsNullOrEmpty($_.Value.Description)) { $params.Payload.properties.description = $_.Value.Description }
                         if ($commonBoundParameters) { $params += $commonBoundParameters }
 
                         if ($PSCmdlet.ShouldProcess(
@@ -420,10 +418,10 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                             )) {
 
                             try {
-                                $null = .\Common_0002__Invoke-AzRequest.ps1 @params
+                                $null = ./Common_0001__Invoke-AzRestMethod.ps1 $params
                                 Write-Host "   $(if ($runtimeEnvironment) {'Updated'} else {'Created'}) " -NoNewline -ForegroundColor White
                                 Write-Host "Runtime Environment : $($_.Key)"
-                                $runtimeEnvironment = $params.Body
+                                $runtimeEnvironment = $params.Payload
                             }
                             catch {
                                 Write-Host "   FAILED to $(if ($runtimeEnvironment) {'update'} else {'create'}) " -NoNewline -ForegroundColor White
@@ -439,16 +437,15 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                     if ($runtimeEnvironment) {
                         Write-Verbose "Getting installed packages for runtime environment '$($runtimeEnvironment.Name)' ..."
                         $params = @{
-                            ResourceGroupName = $automationAccount.ResourceGroupName
-                            Provider          = 'Microsoft.Automation'
-                            ResourceType      = 'automationAccounts'
-                            ResourceName      = $automationAccount.AutomationAccountName
-                            SubResourceUri    = "runtimeEnvironments/$($runtimeEnvironment.Name)/packages"
-                            ApiVersion        = $AzApiVersion
-                            Method            = 'Get'
+                            ResourceGroupName    = $automationAccount.ResourceGroupName
+                            Name                 = $automationAccount.AutomationAccountName, $runtimeEnvironment.Name
+                            ResourceProviderName = 'Microsoft.Automation'
+                            ResourceType         = 'automationAccounts', 'runtimeEnvironments', 'packages'
+                            ApiVersion           = $AzApiVersion
+                            Method               = 'GET'
                         }
                         if ($commonBoundParameters) { $params += $commonBoundParameters }
-                        $installedPackages = (.\Common_0002__Invoke-AzRequest.ps1 @params).Value
+                        $installedPackages = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value
                     }
 
                     $_.Value.Packages.GetEnumerator() | & {
@@ -478,7 +475,7 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                                         }
                                     }
                                     if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
-                                    if (-not $ConfirmedAzPermission) { $null = .\Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams; $ConfirmedAzPermission = $true }
+                                    if (-not $ConfirmedAzPermission) { $null = ./Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams; $ConfirmedAzPermission = $true }
                                 }
                                 catch {
                                     Write-Error "Insufficent Azure permissions: At least 'Automation Contributor' role for the Automation Account is required to setup automation runtime environments." -ErrorAction Stop
@@ -497,14 +494,13 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                                 ) {
                                     Write-Verbose "Package '$($_.Name)' version $($_.Version) needs to be $(if($package.Version) {'updated'} else {'installed'})."
                                     $params = @{
-                                        ResourceGroupName = $automationAccount.ResourceGroupName
-                                        Provider          = 'Microsoft.Automation'
-                                        ResourceType      = 'automationAccounts'
-                                        ResourceName      = $automationAccount.AutomationAccountName
-                                        SubResourceUri    = "runtimeEnvironments/$($runtimeEnvironment.Name)/packages/$($_.Name)"
-                                        ApiVersion        = $AzApiVersion
-                                        Method            = 'Put'
-                                        Body              = @{
+                                        ResourceGroupName    = $automationAccount.ResourceGroupName
+                                        Name                 = $automationAccount.AutomationAccountName, $runtimeEnvironment.Name, $_.Name
+                                        ResourceProviderName = 'Microsoft.Automation'
+                                        ResourceType         = 'automationAccounts', 'runtimeEnvironments', 'packages'
+                                        ApiVersion           = $AzApiVersion
+                                        Method               = 'PUT'
+                                        Payload              = @{
                                             properties = @{
                                                 contentLink = @{
                                                     uri     = "https://www.powershellgallery.com/api/v2/package/$($_.Name)/$($_.Version)"
@@ -524,7 +520,7 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                                         )) {
                                         Write-Host "    $(if ($package.Version) {'(Importing newer version)'} else {'(Importing)              '}) " -NoNewline -ForegroundColor Yellow
                                         Write-Host "$($_.Name) (Version: $($_.Version))"
-                                        $null = .\Common_0002__Invoke-AzRequest.ps1 @params
+                                        $null = ./Common_0001__Invoke-AzRestMethod.ps1 $params
                                     }
                                     else {
                                         return
@@ -542,17 +538,16 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
 
                                 do {
                                     $params = @{
-                                        ResourceGroupName = $automationAccount.ResourceGroupName
-                                        Provider          = 'Microsoft.Automation'
-                                        ResourceType      = 'automationAccounts'
-                                        ResourceName      = $automationAccount.AutomationAccountName
-                                        SubResourceUri    = "runtimeEnvironments/$($runtimeEnvironment.Name)/packages/$($_.Name)"
-                                        ApiVersion        = $AzApiVersion
-                                        Method            = 'Get'
+                                        ResourceGroupName    = $automationAccount.ResourceGroupName
+                                        Name                 = $automationAccount.AutomationAccountName, $runtimeEnvironment.Name, $_.Name
+                                        ResourceProviderName = 'Microsoft.Automation'
+                                        ResourceType         = 'automationAccounts', 'runtimeEnvironments', 'packages'
+                                        ApiVersion           = $AzApiVersion
+                                        Method               = 'GET'
                                     }
                                     if ($commonBoundParameters) { $params += $commonBoundParameters }
 
-                                    $package = (.\Common_0002__Invoke-AzRequest.ps1 @params).properties
+                                    $package = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value.properties
                                     Write-Verbose "Waiting for package '$($_.Name)' version $($_.Version): '$($package.provisioningState)'"
 
                                     if ($package.provisioningState -eq 'Succeeded') {

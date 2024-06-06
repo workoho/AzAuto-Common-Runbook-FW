@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.1.0
 .GUID e392dfb1-8ca4-4f5c-b073-c453ce004891
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.1.0 (2024-02-25)
+    - Renamed from Common_0003__Get-AzAutomationJobInfo.ps1 to Common_0002__Get-AzAutomationJobInfo.ps1 due to upload order.
 #>
 
 <#

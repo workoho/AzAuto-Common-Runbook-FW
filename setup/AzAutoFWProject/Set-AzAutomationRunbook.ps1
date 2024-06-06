@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.3
+.VERSION 1.1.0
 .GUID ac0280b2-7ee2-46bf-8a32-c1277189fb60
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.3 (2024-05-30)
-    - Add link to class SemanticVersionExtended
+    Version 1.1.0 (2024-06-06)
+    - Use Invoke-AzRestMethod instead of Invoke-AzRequest.
 #>
 
 <#
@@ -61,7 +61,7 @@
     This example sets up and updates an Azure Automation Runbook named "MyRunbook" and publishes it.
 #>
 
-#Requires -Module @{ ModuleName='Az.Accounts'; ModuleVersion='2.16.0' }
+#Requires -Module @{ ModuleName='Az.Accounts'; ModuleVersion='3.0.0' }
 #Requires -Module @{ ModuleName='Az.Resources'; ModuleVersion='6.16.0' }
 #Requires -Module @{ ModuleName='Az.Automation'; ModuleVersion='1.10.0' }
 
@@ -177,7 +177,7 @@ try {
         }
     }
     if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
-    $null = .\Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams
+    $null = ./Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams
 }
 catch {
     Write-Error "Insufficent Azure permissions: At least 'Reader' role for the Automation Account is required to validate automation runbooks." -ErrorAction Stop
@@ -462,16 +462,15 @@ try {
 
     #region Get current status
     $params = @{
-        ResourceGroupName = $automationAccount.ResourceGroupName
-        Provider          = 'Microsoft.Automation'
-        ResourceType      = 'automationAccounts'
-        ResourceName      = $automationAccount.AutomationAccountName
-        SubResourceUri    = 'runtimeEnvironments'
-        ApiVersion        = $AzApiVersion
-        Method            = 'Get'
+        ResourceGroupName    = $automationAccount.ResourceGroupName
+        Name                 = $automationAccount.AutomationAccountName
+        ResourceProviderName = 'Microsoft.Automation'
+        ResourceType         = 'automationAccounts', 'runtimeEnvironments'
+        ApiVersion           = $AzApiVersion
+        Method               = 'GET'
     }
     if ($commonBoundParameters) { $params += $commonBoundParameters }
-    $runtimeEnvironments = (.\Common_0002__Invoke-AzRequest.ps1 @params).Value
+    $runtimeEnvironments = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value
 
     if (-Not $runtimeEnvironments) {
         Write-Error "No runtime environments found in $($automationAccount.AutomationAccountName)." -ErrorAction Stop
@@ -479,16 +478,15 @@ try {
     }
 
     $params = @{
-        ResourceGroupName = $automationAccount.ResourceGroupName
-        Provider          = 'Microsoft.Automation'
-        ResourceType      = 'automationAccounts'
-        ResourceName      = $automationAccount.AutomationAccountName
-        SubResourceUri    = 'runbooks'
-        ApiVersion        = $AzApiVersion
-        Method            = 'Get'
+        ResourceGroupName    = $automationAccount.ResourceGroupName
+        Name                 = $automationAccount.AutomationAccountName
+        ResourceProviderName = 'Microsoft.Automation'
+        ResourceType         = 'automationAccounts', 'runbooks'
+        ApiVersion           = $AzApiVersion
+        Method               = 'GET'
     }
     if ($commonBoundParameters) { $params += $commonBoundParameters }
-    $runbooks = (.\Common_0002__Invoke-AzRequest.ps1 @params).Value
+    $runbooks = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value
     #endregion
 
     $ConfirmedAzPermission = $false
@@ -531,14 +529,13 @@ try {
 
                 $script:tags = $null
                 $params = @{
-                    ResourceGroupName = $automationAccount.ResourceGroupName
-                    Provider          = 'Microsoft.Automation'
-                    ResourceType      = 'automationAccounts'
-                    ResourceName      = $automationAccount.AutomationAccountName
-                    SubResourceUri    = "runbooks/$($_.BaseName)"
-                    ApiVersion        = $AzApiVersion
-                    Method            = 'Patch'
-                    Body              = @{
+                    ResourceGroupName    = $automationAccount.ResourceGroupName
+                    Name                 = $automationAccount.AutomationAccountName, $_.BaseName
+                    ResourceProviderName = 'Microsoft.Automation'
+                    ResourceType         = 'automationAccounts', 'runbooks'
+                    ApiVersion           = $AzApiVersion
+                    Method               = 'PATCH'
+                    Payload              = @{
                         name       = $_.BaseName
                         location   = $automationAccount.Location
                         properties = @{
@@ -561,12 +558,12 @@ try {
                 $runbookConfig = $config.AutomationRunbook.Runbooks | Where-Object { $_.Name -eq $_.BaseName -or $_.Name -eq $_.Name }
                 if ($runbookConfig.Count -gt 1) { Write-Error "Configuration for runbook '$($_.Name)' is ambiguous."; return }
 
-                $params.Body.properties.runtimeEnvironment = $(
+                $params.Payload.properties.runtimeEnvironment = $(
                     if ($runbookConfig.RuntimeEnvironment) {
-                        $runtimeEnvironment = $runtimeEnvironments | Where-Object { $_.Name -eq $runbookConfig.RuntimeEnvironment -and $_.properties.runtime.language -eq $params.Body.properties.runbookType }
+                        $runtimeEnvironment = $runtimeEnvironments | Where-Object { $_.Name -eq $runbookConfig.RuntimeEnvironment -and $_.properties.runtime.language -eq $params.Payload.properties.runbookType }
                     }
                     else {
-                        $runtimeEnvironment = $runtimeEnvironments | Where-Object { $_.Name -eq $config.AutomationRunbook.DefaultRuntimeEnvironment.$($params.Body.properties.runbookType) -and $_.properties.runtime.language -eq $params.Body.properties.runbookType }
+                        $runtimeEnvironment = $runtimeEnvironments | Where-Object { $_.Name -eq $config.AutomationRunbook.DefaultRuntimeEnvironment.$($params.Payload.properties.runbookType) -and $_.properties.runtime.language -eq $params.Payload.properties.runbookType }
                     }
                     if ($runtimeEnvironment) {
                         Write-Verbose " Using runtime environment: $($runtimeEnvironment.Name)"
@@ -602,7 +599,7 @@ try {
                     Write-Verbose " Stripping description to 508 characters with ' ...'"
                     $description = $description.Substring(0, 508) + ' ...'
                 }
-                $params.Body.properties.description = $description
+                $params.Payload.properties.description = $description
 
                 function Set-ScriptTags {
                     param(
@@ -798,10 +795,12 @@ try {
                                 $tag = git describe --exact-match --tags HEAD 2>$null
                                 if ($tag -match '^v.+') {
                                     $gitCache.Repository.$currentDirectory.Branch = $null
-                                } else {
+                                }
+                                else {
                                     throw
                                 }
-                            } catch {
+                            }
+                            catch {
                                 $gitCache.Repository.$currentDirectory.Branch = git rev-parse --abbrev-ref HEAD 2>$null
                             }
                         }
@@ -1147,10 +1146,10 @@ try {
                         ResourceGroupName     = $automationAccount.ResourceGroupName
                         AutomationAccountName = $automationAccount.AutomationAccountName
                         Name                  = $_.BaseName
-                        Type                  = $params.Body.properties.runbookType
+                        Type                  = $params.Payload.properties.runbookType
                         Path                  = $_.FullName
                         Publish               = $importNewAsPublished
-                        Description           = $params.Body.properties.description
+                        Description           = $params.Payload.properties.description
                         Tags                  = $tags
                     }
                     if ($commonBoundParameters) { $importParams += $commonBoundParameters }
@@ -1172,7 +1171,7 @@ try {
                                 }
                             }
                             if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
-                            if (-not $ConfirmedAzPermission) { $null = .\Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams; $ConfirmedAzPermission = $true }
+                            if (-not $ConfirmedAzPermission) { $null = ./Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams; $ConfirmedAzPermission = $true }
                         }
                         catch {
                             Write-Error "Insufficent Azure permissions: At least 'Automation Contributor' role for the Automation Account is required to setup automation runbooks." -ErrorAction Stop
@@ -1196,7 +1195,7 @@ try {
                         try {
                             $runbook = Import-AzAutomationRunbook @importParams
                             # Basically to set the runtimeEnvironment as Import-AzAutomationRunbook does not support it yet
-                            $null = .\Common_0002__Invoke-AzRequest.ps1 @params
+                            $null = ./Common_0001__Invoke-AzRestMethod.ps1 $params
                             if ($importNewAsPublished) {
                                 Write-Host "    (Published)      " -NoNewline -ForegroundColor Green
                                 Write-Host "$($_.Name) (File Version: $($tags.'File.Version')$(if ($null -ne $tags.'Script.Version') {", Script Version: $($tags.'Script.Version')"}))"
@@ -1354,7 +1353,7 @@ try {
                             }
                         }
                         if ($commonBoundParameters) { $confirmParams += $commonBoundParameters }
-                        if (-not $ConfirmedAzPermission) { $null = .\Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams; $ConfirmedAzPermission = $true }
+                        if (-not $ConfirmedAzPermission) { $null = ./Common_0003__Confirm-AzRoleActiveAssignment.ps1 @confirmParams; $ConfirmedAzPermission = $true }
                     }
                     catch {
                         Write-Error "Insufficent Azure permissions: At least 'Automation Contributor' role for the Automation Account is required to setup automation runbooks." -ErrorAction Stop
@@ -1376,16 +1375,15 @@ try {
 
                             Write-Verbose "(Revert) $($_.Name) - Discarding draft and removing draft tags from published runbook"
                             $undoParams = @{
-                                ResourceGroupName = $automationAccount.ResourceGroupName
-                                Provider          = 'Microsoft.Automation'
-                                ResourceType      = 'automationAccounts'
-                                ResourceName      = $automationAccount.AutomationAccountName
-                                SubResourceUri    = "runbooks/$($_.BaseName)/draft/undoEdit"
-                                ApiVersion        = $AzApiVersion
-                                Method            = 'Post'
+                                ResourceGroupName    = $automationAccount.ResourceGroupName
+                                Name                 = $automationAccount.AutomationAccountName, $_.BaseName, 'undoEdit'
+                                ResourceProviderName = 'Microsoft.Automation'
+                                ResourceType         = 'automationAccounts', 'runbooks', 'draft'
+                                ApiVersion           = $AzApiVersion
+                                Method               = 'POST'
                             }
                             if ($commonBoundParameters) { $undoParams += $commonBoundParameters }
-                            $null = .\Common_0002__Invoke-AzRequest.ps1 @undoParams
+                            $null = ./Common_0001__Invoke-AzRestMethod.ps1 $undoParams
 
                             Write-Verbose "(Update) $($_.Name) - Updating Azure Tags"
                             $null = Set-AzAutomationRunbook -Tag $tags @params
@@ -1413,11 +1411,11 @@ try {
                                     ResourceGroupName     = $automationAccount.ResourceGroupName
                                     AutomationAccountName = $automationAccount.AutomationAccountName
                                     Name                  = $_.BaseName
-                                    Type                  = $params.Body.properties.runbookType
+                                    Type                  = $params.Payload.properties.runbookType
                                     Path                  = $_.FullName
                                     Force                 = $true
                                     Publish               = if ($thisUpdateAndPublishRunbook -eq $true) { $true } else { $false }
-                                    Description           = $params.Body.properties.description
+                                    Description           = $params.Payload.properties.description
                                     Tags                  = $tags
                                 }
                                 if ($commonBoundParameters) { $importParams += $commonBoundParameters }
@@ -1442,7 +1440,7 @@ try {
                     ) {
                         # Basically to set the runtimeEnvironment as Import-/Set-AzAutomationRunbook does not support it yet
                         Write-Verbose "(Update) $($_.Name) - Runbook settings"
-                        $null = .\Common_0002__Invoke-AzRequest.ps1 @params
+                        $null = ./Common_0001__Invoke-AzRestMethod.ps1 $params
                     }
                 }
             }

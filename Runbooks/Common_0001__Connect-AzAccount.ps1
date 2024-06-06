@@ -77,7 +77,7 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
 
 #region [COMMON] ENVIRONMENT ---------------------------------------------------
 ./Common_0000__Import-Module.ps1 -Modules @(
-    @{ Name = 'Az.Accounts' }
+    @{ Name = 'Az.Accounts'; MinimumVersion = '3.0.0' }
 ) 1> $null
 #endregion ---------------------------------------------------------------------
 

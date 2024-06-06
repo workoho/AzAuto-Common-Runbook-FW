@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.2.0
 .GUID 6d840940-e0fe-4de7-80ad-c6d3d495d695
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-06-01)
-    - Add support for onPremisesSamAccountName as user ID.
+    Version 1.2.0 (2024-06-06)
+    - Renamed from Common_0003__Find-MgUserWithSoftDeleted.ps1 to Common_0002__Find-MgUserWithSoftDeleted.ps1 due to upload order.
 #>
 
 <#
@@ -131,7 +131,7 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
         $retryAfter = $null
 
         try {
-            $response = ./Common_0002__Invoke-MgGraphRequest.ps1 $params
+            $response = ./Common_0001__Invoke-MgGraphRequest.ps1 $params
         }
         catch {
             Throw $_
@@ -165,7 +165,7 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
                     Start-Sleep -Seconds $retryAfter
                 }
                 try {
-                    $response = ./Common_0002__Invoke-MgGraphRequest.ps1 $params
+                    $response = ./Common_0001__Invoke-MgGraphRequest.ps1 $params
                 }
                 catch {
                     Throw $_

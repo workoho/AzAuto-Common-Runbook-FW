@@ -73,7 +73,14 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
 
             try {
                 # Get all jobs for the runbook and process using pipeline to avoid memory issues
-                ((Az.Accounts\Invoke-AzRestMethod -Method Get -Path "$($env:AZURE_AUTOMATION_AccountId)/jobs?api-version=2023-11-01" -ErrorAction Stop -Verbose:$false -Debug:$false).Content | ConvertFrom-Json).value.properties |
+                $params = @{
+                    Method      = 'GET'
+                    Path        = "$($env:AZURE_AUTOMATION_AccountId)/jobs?api-version=2023-11-01"
+                    ErrorAction = 'Stop'
+                    Verbose     = $false
+                    Debug       = $false
+                }
+                (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value.properties |
                 & {
                     process {
                         if (

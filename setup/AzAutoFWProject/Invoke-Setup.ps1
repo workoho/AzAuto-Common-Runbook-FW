@@ -70,7 +70,7 @@
     except that it only updates the value of the automation variable "MyVariable".
 #>
 
-#Requires -Module @{ ModuleName='Az.Accounts'; ModuleVersion='2.16.0' }
+#Requires -Module @{ ModuleName='Az.Accounts'; ModuleVersion='3.0.0' }
 #Requires -Module @{ ModuleName='Az.Resources'; ModuleVersion='6.16.0' }
 #Requires -Module @{ ModuleName='Az.Automation'; ModuleVersion='1.10.0' }
 #Requires -Module @{ ModuleName='Microsoft.Graph.Authentication'; ModuleVersion='2.15.0' }

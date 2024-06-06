@@ -69,7 +69,12 @@ try {
 
             while (-not $success -and $retryCount -lt 5) {
                 try {
-                    $AutomationVariables = @(((Az.Accounts\Invoke-AzRestMethod -Method Get -Path "$($env:AZURE_AUTOMATION_AccountId)/variables?api-version=$apiVersion" -ErrorAction Stop).Content | ConvertFrom-Json).Value)
+                    $params = @{
+                        Path = "$($env:AZURE_AUTOMATION_AccountId)/variables?api-version=$apiVersion"
+                        Method = 'GET'
+                        ErrorAction = 'Stop'
+                    }
+                    $AutomationVariables = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value
                     $success = $true
                 }
                 catch {
