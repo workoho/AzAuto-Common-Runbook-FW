@@ -57,7 +57,7 @@ do {
     try {
         $response = Az.Accounts\Invoke-AzRestMethod @Params
         if (-not [string]::IsNullOrEmpty($response.Content) -and $response.Content -match '^\s*{') {
-            if ($PSVersionTable.Edition -eq 'Desktop') {
+            if ($PSVersionTable.PSEdition -eq 'Desktop') {
                 $response | Add-Member -NotePropertyName 'Content' -NotePropertyValue $($response.Content | ConvertFrom-Json) -Force
             } else {
                 $response | Add-Member -NotePropertyName 'Content' -NotePropertyValue $($response.Content | ConvertFrom-Json -Depth 10) -Force
