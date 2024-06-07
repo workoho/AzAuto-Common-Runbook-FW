@@ -75,10 +75,9 @@
             #     )
             # }
 
-            # This is a custom Runtime Environment name for PowerShell 5.1 with Az 8.0.0 and additional modules.
-            # This is currently required as Az 11.2.0 does not work correctly in PowerShell 5.1 in Azure Automation.
+            # This is a custom Runtime Environment name for PowerShell 5.1 with Az 11.2.0 and additional modules.
             'AzAutoProject-V1' = @{
-                Description = 'Runtime environment for Automation Runbooks with Az 8.0.0 and additional modules.'
+                Description = 'Runtime environment for Automation Runbooks with Az 11.2.0 and additional modules.'
                 Runtime     = @{
                     Language = 'PowerShell'
                     Version  = '5.1'    # We use PowerShell 5.1 here, as it is the only version that supports child runbooks at the time of writing.
@@ -88,7 +87,7 @@
                     @{
                         # This is the defaultPackage and must always be set.
                         Name      = 'Az'
-                        Version   = '8.0.0'     # Note that version 11.2.0 currently does not work correctly in PowerShell 5.1 in Azure Automation
+                        Version   = '11.2.0'
                         IsDefault = $true
                     }
                     @{
