@@ -60,7 +60,7 @@ do {
             if ($PSVersionTable.Edition -eq 'Desktop') {
                 $response | Add-Member -NotePropertyName 'Content' -NotePropertyValue $($response.Content | ConvertFrom-Json) -Force
             } else {
-                $response.Content = $response.Content | ConvertFrom-Json -Depth 10
+                $response | Add-Member -NotePropertyName 'Content' -NotePropertyValue $($response.Content | ConvertFrom-Json -Depth 10) -Force
             }
         }
         $rateLimitExceeded = $false
