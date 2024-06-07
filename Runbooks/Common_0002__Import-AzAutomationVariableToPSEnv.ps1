@@ -96,13 +96,18 @@ try {
                     return
                 }
                 if (($null -ne $script:Variable) -and ($_.Name -notin $script:Variable)) { return }
+                if ($null -eq $_.properties.value) {
+                    $_.properties | Add-Member -Type NoteProperty -Name value -Value ''
+                }
                 if ($_.properties.isEncrypted) {
                     # Get-AutomationVariable is an internal cmdlet that is not available in the Az module.
                     # It is part of the Automation internal module Orchestrator.AssetManagement.Cmdlets.
                     # https://learn.microsoft.com/en-us/azure/automation/shared-resources/modules#internal-cmdlets
-                    $_.properties.value = Orchestrator.AssetManagement.Cmdlets\Get-AutomationVariable -Name $_.Name
+                    $_.properties.value = Get-AutomationVariable -Name $_.Name
                 }
-                $_.properties.value = $_.properties.value.Trim('"')
+                if (-not [string]::IsNullOrEmpty($_.properties.value)) {
+                    $_.properties.value = $_.properties.value.Trim('"')
+                }
 
                 if ($_.properties.value -eq 'true' -or $_.properties.value -eq 'false') {
                     Write-Verbose "[COMMON]: - Setting `$env:$($_.Name) as boolean string value"

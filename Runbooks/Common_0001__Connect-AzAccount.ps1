@@ -112,12 +112,12 @@ function Set-EnvVarsAfterMgConnect {
         if ($null -eq (Get-Module -Name Orchestrator.AssetManagement.Cmdlets -ErrorAction SilentlyContinue)) {
             try {
                 if ($null -eq $global:PSModuleAutoloadingPreference) {
-                    $null = Orchestrator.AssetManagement.Cmdlets\Get-AutomationVariable -Name DummyVar -ErrorAction SilentlyContinue -WhatIf
+                    $null = Get-AutomationVariable -Name DummyVar -ErrorAction SilentlyContinue -WhatIf
                 }
                 else {
                     $AutoloadingPreference = $global:PSModuleAutoloadingPreference
                     $global:PSModuleAutoloadingPreference = 'All'
-                    $null = Orchestrator.AssetManagement.Cmdlets\Get-AutomationVariable -Name DummyVar -ErrorAction SilentlyContinue -WhatIf
+                    $null = Get-AutomationVariable -Name DummyVar -ErrorAction SilentlyContinue -WhatIf
                     $global:PSModuleAutoloadingPreference = $AutoloadingPreference
                 }
             }
