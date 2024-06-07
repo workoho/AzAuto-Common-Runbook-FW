@@ -56,8 +56,12 @@ if ($Params.Payload -is [System.Collections.IEnumerable]) {
 do {
     try {
         $response = Az.Accounts\Invoke-AzRestMethod @Params
-        if (-not [string]::IsNullOrEmpty($response.Content)) {
-            $response | Add-Member -NotePropertyName 'Content' -NotePropertyValue $($response.Content | ConvertFrom-Json -Depth 10) -Force
+        if (-not [string]::IsNullOrEmpty($response.Content -and $response.Content -match '^\s*{')) {
+            if ($PSVersionTable.Edition -eq 'Desktop') {
+                $response | Add-Member -NotePropertyName 'Content' -NotePropertyValue $($response.Content | ConvertFrom-Json) -Force
+            } else {
+                $response.Content = $response.Content | ConvertFrom-Json -Depth 10
+            }
         }
         $rateLimitExceeded = $false
     }
