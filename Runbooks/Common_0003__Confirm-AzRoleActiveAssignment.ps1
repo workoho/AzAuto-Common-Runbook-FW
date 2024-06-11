@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.1.0
 .GUID c2401e63-ecea-4895-b13a-7b63340215fd
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.1.0 (2024-06-11)
+    - Remove implicit dependency on Az.Resources and Microsoft.Graph.Users modules.
 #>
 
 <#
@@ -58,11 +58,13 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
 Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
-./Common_0001__Connect-MgGraph.ps1 -TenantId (Get-AzContext).Tenant.Id
+./Common_0001__Connect-MgGraph.ps1 # Connect to Microsoft Graph and implicitly to Azure cloud
 
 $missingRoles = [System.Collections.ArrayList]::new()
-$currentUser = Get-AzADUser -SignedIn
-$currentUserGroups = (Get-MgUserTransitiveMemberOf -UserId $currentUser.Id).Id
+$currentUserGroups = @((./Common_0001__Invoke-MgGraphRequest.ps1 @{
+    Method = 'GET'
+    Uri    = "https://graph.microsoft.com/v1.0/users/$((Get-AzContext).Account.ExtendedProperties.HomeAccountId.Split('.')[0])/transitiveMemberOf"
+}).value.id)
 $return = @{}
 $cache = @{}
 

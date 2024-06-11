@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.1.0
 .GUID 06f32253-347f-45dc-a6f8-f61eb7fcfb0f
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.1.0 (2024-06-11)
+    - Remove dependency on module Microsoft.Graph.Beta.Identity.DirectoryManagement
 #>
 
 <#
@@ -69,10 +69,10 @@ $tenantVerifiedDomains = if ($VerifiedDomains) { $VerifiedDomains } else {
     #endregion ---------------------------------------------------------------------
 
     try {
-        (Get-MgBetaOrganization -OrganizationId (Get-MgContext).TenantId -ErrorAction Stop -Verbose:$false).VerifiedDomains
+        (./Common_0001__Invoke-MgGraphRequest.ps1 @{ Method = 'GET'; Uri = 'https://graph.microsoft.com/v1.0/organization'; OutputType = 'PSObject'; ErrorAction = 'Stop'; Verbose = $false; Debug = $false }).Value.VerifiedDomains
     }
     catch {
-        $_
+        Throw $_
     }
 }
 $tenantDomain = ($tenantVerifiedDomains | Where-Object { $_.IsInitial -eq $true }).Name

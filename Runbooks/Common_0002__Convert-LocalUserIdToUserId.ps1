@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.1
+.VERSION 1.0.2
 .GUID 56ccfd86-ec40-4815-815a-00656a08952d
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,13 +12,13 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.1 (2024-05-17)
-    - Small memory optimization.
+    Version 1.0.2 (2024-06-11)
+    - Update documentation
 #>
 
 <#
 .SYNOPSIS
-    Convert local User Principal Name like user@contoso.com or user_contoso.com#EXT@tenant.onmicrosoft.com to a user name like user@contoso.com.
+    Convert local User Principal Name like user@contoso.com or user_contoso.com#EXT#@tenant.onmicrosoft.com to a user name like user@contoso.com.
 
 .DESCRIPTION
     This script converts local User Principal Names (UPNs) to user names. It takes an array of UPNs as input and returns an array of corresponding user names.
@@ -26,7 +26,7 @@
 
     The conversion rules are as follows:
     - If the input is a valid GUID, it is returned as is.
-    - If the input is in the format "username_domain#EXT@tenant", it is converted to "username@domain".
+    - If the input is in the format "username_domain#EXT#@tenant", it is converted to "username@domain".
     - If the input is in the format "username@domain", it is returned as is.
     - If the input does not match any of the above formats, a warning is issued and the input is returned as is.
 
@@ -34,7 +34,7 @@
     Specifies an array of User Principal Names (UPNs) to be converted to user names.
 
 .EXAMPLE
-    PS> Common_0002__Convert-LocalUserIdToUserId.ps1 -UserId "user1@contoso.com", "user2_contoso.com#EXT@tenant.onmicrosoft.com"
+    PS> Common_0002__Convert-LocalUserIdToUserId.ps1 -UserId "user1@contoso.com", "user2_contoso.com#EXT#@tenant.onmicrosoft.com"
 
     This example converts two UPNs to user names and returns the result.
 

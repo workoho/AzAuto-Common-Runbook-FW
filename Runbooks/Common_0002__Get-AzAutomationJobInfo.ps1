@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.2.0
 .GUID e392dfb1-8ca4-4f5c-b073-c453ce004891
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-02-25)
-    - Renamed from Common_0003__Get-AzAutomationJobInfo.ps1 to Common_0002__Get-AzAutomationJobInfo.ps1 due to upload order.
+    Version 1.2.0 (2024-06-11)
+    - Remove dependency on Az.Monitor and Az.Resources modules
 #>
 
 <#
@@ -51,32 +51,36 @@ $return = @{
     Runbook           = $null
 }
 
-if ($env:AZURE_AUTOMATION_RUNBOOK_Name) {
+if (
+    $env:AZURE_AUTOMATION_RUNBOOK_JOB_CreationTime -and
+    $env:AZURE_AUTOMATION_RUNBOOK_JOB_StartTime -and
+    $env:AZURE_AUTOMATION_ResourceGroupName
+) {
     $return.JobId = $PSPrivateMetadata.JobId
-    $return.CreationTime = (Get-Date $env:AZURE_AUTOMATION_RUNBOOK_JOB_CreationTime).ToUniversalTime()
-    $return.StartTime = (Get-Date $env:AZURE_AUTOMATION_RUNBOOK_JOB_StartTime).ToUniversalTime()
+    $return.CreationTime = [datetime]::Parse($env:AZURE_AUTOMATION_RUNBOOK_JOB_CreationTime).ToUniversalTime()
+    $return.StartTime = [datetime]::Parse($env:AZURE_AUTOMATION_RUNBOOK_JOB_StartTime).ToUniversalTime()
 
     if ($StartedBy) {
-        ./Common_0000__Import-Module.ps1 -Modules @(
-            @{ Name = 'Az.Monitor'; MinimumVersion = '3.0' }
-            @{ Name = 'Az.Resources'; MinimumVersion = '5.0' }
-        ) 1> $null
         $StartTime = ($return.CreationTime).AddMinutes(-5)
         $JobInfo = @{}
         $TimeoutLoop = 0
         while ($null -eq $return.StartedBy -and $TimeoutLoop -lt 9 ) {
             Write-Verbose "[COMMON]: - Waiting for job activity log to appear ..."
             $TimeoutLoop++
-            $JobAcvitityLogs = Get-AzActivityLog -ResourceGroupName $env:AZURE_AUTOMATION_ResourceGroupName -StartTime $StartTime | Where-Object { $_.Authorization.Action -eq 'Microsoft.Automation/automationAccounts/jobs/write' }
-            foreach ($Log in $JobAcvitityLogs) {
-                Write-Verbose "[COMMON]: - Checking log entry $($Log.EventTimestamp) for job ID $($Log.Properties.jobId) ..."
-                $JobResource = Get-AzResource -ResourceId $Log.ResourceId
-                if ($JobResource.Properties.jobId -eq $PSPrivateMetadata.JobId) {
-                    Write-Verbose "[COMMON]: - Found log entry for job ID $($Log.Properties.jobId) ..."
-                    $return.StartedBy = $Log.Caller
-                    break
-                }
+
+            $params = @{
+                Method = 'GET'
+                Path   = "/subscriptions/$((Get-AzContext).Subscription.Id)/providers/Microsoft.Insights/EventTypes/management/values?`$select=Authorization,Caller&`$filter=eventTimestamp ge $([System.Web.HttpUtility]::UrlEncode($StartTime.ToString('o'))) and resourceGroupName eq '$($env:AZURE_AUTOMATION_ResourceGroupName)'&api-version=2015-04-01"
             }
+            $Log = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value | Where-Object { $_.authorization.action -eq 'Microsoft.Automation/automationAccounts/jobs/write' -and $_.authorization.scope -like "*$($PSPrivateMetadata.JobId)" }
+
+            if ($Log) {
+                Write-Verbose "[COMMON]: - Found caller $($Log.Caller) for job ID $($PSPrivateMetadata.JobId) ..."
+                $return.StartedBy = $Log.Caller
+            }
+
+            $Log = $null
+            [System.GC]::Collect()
             if ($null -eq $return.StartedBy) { Start-Sleep 10 }
         }
     }
@@ -93,12 +97,12 @@ if ($env:AZURE_AUTOMATION_RUNBOOK_Name) {
     }
     $return.Runbook = @{
         Name             = $env:AZURE_AUTOMATION_RUNBOOK_Name
-        CreationTime     = (Get-Date $env:AZURE_AUTOMATION_RUNBOOK_CreationTime).ToUniversalTime()
-        LastModifiedTime = (Get-Date $env:AZURE_AUTOMATION_RUNBOOK_LastModifiedTime).ToUniversalTime()
+        CreationTime     = [datetime]::Parse($env:AZURE_AUTOMATION_RUNBOOK_CreationTime).ToUniversalTime()
+        LastModifiedTime = [datetime]::Parse($env:AZURE_AUTOMATION_RUNBOOK_LastModifiedTime).ToUniversalTime()
     }
 }
 else {
-    $return.CreationTime = (Get-Date ).ToUniversalTime()
+    $return.CreationTime = [datetime]::UtcNow
     $return.StartTime = $return.CreationTime
     $return.Runbook = @{
         Name = (Get-Item $MyInvocation.MyCommand).BaseName
