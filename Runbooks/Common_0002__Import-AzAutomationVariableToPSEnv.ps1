@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.3.0 (2024-06-06)
-    - Use Invoke-AzRestMethod
+    Version 1.3.1 (2024-06-13)
+    - Unescape variable values before setting them as environment variables.
 #>
 
 <#
@@ -74,7 +74,7 @@ try {
                         Method = 'GET'
                         ErrorAction = 'Stop'
                     }
-                    $AutomationVariables = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value
+                    $AutomationVariables = @((./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value)
                     $success = $true
                 }
                 catch {
@@ -99,14 +99,14 @@ try {
                 if ($null -eq $_.properties.value) {
                     $_.properties | Add-Member -Type NoteProperty -Name value -Value ''
                 }
+                if (-not [string]::IsNullOrEmpty($_.properties.value)) {
+                    $_.properties.value = [System.Text.RegularExpressions.Regex]::Unescape($_.properties.value.Trim('"'))
+                }
                 if ($_.properties.isEncrypted) {
                     # Get-AutomationVariable is an internal cmdlet that is not available in the Az module.
                     # It is part of the Automation internal module Orchestrator.AssetManagement.Cmdlets.
                     # https://learn.microsoft.com/en-us/azure/automation/shared-resources/modules#internal-cmdlets
                     $_.properties.value = Get-AutomationVariable -Name $_.Name
-                }
-                if (-not [string]::IsNullOrEmpty($_.properties.value)) {
-                    $_.properties.value = $_.properties.value.Trim('"')
                 }
 
                 if ($_.properties.value -eq 'true' -or $_.properties.value -eq 'false') {
