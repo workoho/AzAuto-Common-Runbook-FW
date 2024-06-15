@@ -119,11 +119,12 @@ if (
     }
 
     try {
-        Write-Information 'Connecting to Microsoft Graph ...' -InformationAction Continue
         if ($params.UseDeviceCode) {
+            Write-Host "`e[1;37;44m[Login to Graph]`e[0m "
             Connect-MgGraph @params | Out-Host
         }
         else {
+            Write-Information 'Connecting to Microsoft Graph ...' -InformationAction Continue
             Connect-MgGraph @params 1> $null
         }
     }

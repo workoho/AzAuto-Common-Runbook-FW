@@ -234,7 +234,9 @@ else {
             $params.Subscription = $Subscription
         }
 
-        Write-Information 'Connecting to Microsoft Azure ...' -InformationAction Continue
+        if (-not $params.UseDeviceAuthentication) {
+            Write-Information 'Connecting to Microsoft Azure ...' -InformationAction Continue
+        }
         $Context = (Az.Accounts\Connect-AzAccount @params).context
         $Context = Az.Accounts\Set-AzContext -SubscriptionName $Context.Subscription -DefaultProfile $Context
 
