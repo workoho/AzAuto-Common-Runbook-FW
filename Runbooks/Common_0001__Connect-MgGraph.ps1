@@ -120,8 +120,16 @@ if (
 
     try {
         if ($params.UseDeviceCode) {
+            Write-Host "Please select the account you want to login with.`n" -ForegroundColor Yellow
             Write-Host -NoNewline "`e[1;37;44m[Login to Graph]`e[0m "
-            Connect-MgGraph @params | Out-Host
+            Connect-MgGraph @params | ForEach-Object {
+                if ($_ -is [string] -and $_ -match ' ([A-Z0-9]{9}) ') {
+                    $_ -replace $Matches[1], "`e[4m$($Matches[1])`e[24m"
+                }
+                else {
+                    $_
+                }
+            } | Out-Host
         }
         else {
             Write-Information 'Connecting to Microsoft Graph ...' -InformationAction Continue
