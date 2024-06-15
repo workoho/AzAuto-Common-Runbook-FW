@@ -120,7 +120,7 @@ if (
 
     try {
         if ($params.UseDeviceCode) {
-            Write-Host "`e[1;37;44m[Login to Graph]`e[0m "
+            Write-Host -NoNewline "`e[1;37;44m[Login to Graph]`e[0m "
             Connect-MgGraph @params | Out-Host
         }
         else {
