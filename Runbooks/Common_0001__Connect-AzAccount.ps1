@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.4.0
+.VERSION 1.4.1
 .GUID 1dc765c0-4922-4142-a945-13206df25f13
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,9 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.4.0 (2024-06-06)
-    - Use Invoke-AzRestMethod instead of Get-AzAutomationAccount and Get-AzAutomationJob to retrieve Automation Account and Job details.
-    - Add $env:AZURE_AUTOMATION_AccountId
+    Version 1.4.1 (2024-06-15)
+    - Validate subscription ID
 #>
 
 <#
@@ -225,7 +224,15 @@ else {
             }
             $params.Tenant = $Tenant
         }
-        if ($Subscription) { $params.Subscription = $Subscription }
+        if ($Subscription) {
+            if (
+                $Subscription -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' -or
+                $Subscription -eq '00000000-0000-0000-0000-000000000000'
+            ) {
+                Throw '[COMMON]: - Invalid subscription ID. The subscription ID must be a valid GUID.'
+            }
+            $params.Subscription = $Subscription
+        }
 
         Write-Information 'Connecting to Microsoft Azure ...' -InformationAction Continue
         $Context = (Az.Accounts\Connect-AzAccount @params).context
