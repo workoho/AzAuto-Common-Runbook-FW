@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.2.0
 .GUID 05273e10-2a70-42aa-82d3-7881324beead
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,10 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-06-04)
-    - Remove dependency to Microsoft.Graph.Users module.
-    - Make sure that Connect-AzAccount is called before connecting to Microsoft Graph to avoid conflicts with the Microsoft Graph modules in PowerShell 5.1.
-    - Refactoring and cleanup.
+    Version 1.2.0 (2024-06-15)
+    - Redirect output of Connect-MgGraph to Out-Host when using device code authentication
 #>
 
 <#
@@ -123,7 +121,7 @@ if (
     try {
         Write-Information 'Connecting to Microsoft Graph ...' -InformationAction Continue
         if ($params.UseDeviceCode) {
-            Connect-MgGraph @params
+            Connect-MgGraph @params | Out-Host
         }
         else {
             Connect-MgGraph @params 1> $null
