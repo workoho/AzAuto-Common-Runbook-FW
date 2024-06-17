@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.3.0
+.VERSION 1.3.2
 .GUID 05a03d22-11a6-4114-8241-6e02a66d00fc
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.3.1 (2024-06-13)
-    - Unescape variable values before setting them as environment variables.
+    Version 1.3.2 (2024-06-17)
+    - Minor improvements.
 #>
 
 <#
@@ -71,7 +71,6 @@ try {
                 try {
                     $params = @{
                         Path = "$($env:AZURE_AUTOMATION_AccountId)/variables?api-version=$apiVersion"
-                        Method = 'GET'
                         ErrorAction = 'Stop'
                     }
                     $AutomationVariables = @((./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value)

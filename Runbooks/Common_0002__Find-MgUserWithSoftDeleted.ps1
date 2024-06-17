@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.0
+.VERSION 1.2.1
 .GUID 6d840940-e0fe-4de7-80ad-c6d3d495d695
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.0 (2024-06-06)
-    - Renamed from Common_0003__Find-MgUserWithSoftDeleted.ps1 to Common_0002__Find-MgUserWithSoftDeleted.ps1 due to upload order.
+    Version 1.2.1 (2024-06-17)
+    - Minor improvements.
 #>
 
 <#
@@ -104,7 +104,7 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
 
         $params = @{
             Method      = 'POST'
-            Uri         = 'https://graph.microsoft.com/v1.0/$batch'
+            Uri         = '/v1.0/$batch'
             Body        = @{
                 requests = [System.Collections.ArrayList] @(
                     # First, search in existing users. We're using $filter here because fetching the user by Id would return an error if the user is soft-deleted or not existing.
@@ -122,7 +122,6 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
                     }
                 )
             }
-            OutputType  = 'PSObject'
             ErrorAction = 'Stop'
             Verbose     = $VerbosePreference
             Debug       = $DebugPreference

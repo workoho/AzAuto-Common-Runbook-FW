@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 0.0.1
+.VERSION 0.0.2
 .GUID b39dc20f-f5de-4f6b-958e-41762df89805
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,7 +12,7 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 0.0.1 (2024-01-18)
+    Version 0.0.2 (2024-06-17)
     - Initial draft.
     - Requires re-write in conjunction with the Common_0003__Confirm-MgAppPermission.ps1 runbook.
 #>
@@ -47,242 +47,92 @@ Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFile
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
 try {
-    if ((Get-Module).Name -match 'Microsoft.Graph.Beta') {
-        #region [COMMON] ENVIRONMENT ---------------------------------------------------
-        ./Common_0000__Import-Module.ps1 -Modules @(
-            @{ Name = 'Microsoft.Graph.Beta.Identity.SignIns'; MinimumVersion = '2.0'; MaximumVersion = '2.65535' }
-            @{ Name = 'Microsoft.Graph.Beta.Applications'; MinimumVersion = '2.0'; MaximumVersion = '2.65535' }
-            @{ Name = 'Microsoft.Graph.Beta.Users'; MinimumVersion = '2.0'; MaximumVersion = '2.65535' }
-        ) 1> $null
-        #endregion ---------------------------------------------------------------------
+    $return = [System.Collections.ArrayList]::new()
 
-        $return = [System.Collections.ArrayList]::new()
+    if ((Get-MgContext).AuthType -eq 'Delegated') {
+        $AppRoleAssignments = @((Invoke-MgGraphRequest -Uri "/v1.0/users/$($env:MG_PRINCIPAL_ID)/appRoleAssignments" -ErrorAction SilentlyContinue -Verbose:$false).value)
+        $PermissionGrants = @((Invoke-MgGraphRequest -Uri "/v1.0/users/$($env:MG_PRINCIPAL_ID)/oauth2PermissionGrants" -ErrorAction SilentlyContinue -Verbose:$false).value)
+    }
+    else {
+        $AppRoleAssignments = @((Invoke-MgGraphRequest -Uri "/v1.0/servicePrincipals/$($env:MG_PRINCIPAL_ID)/appRoleAssignments" -ErrorAction SilentlyContinue -Verbose:$false).value)
+        $PermissionGrants = @((Invoke-MgGraphRequest -Uri "/v1.0/servicePrincipals/$($env:MG_PRINCIPAL_ID)/oauth2PermissionGrants" -ErrorAction SilentlyContinue -Verbose:$false).value)
+    }
 
-        if ((Get-MgContext).AuthType -eq 'Delegated') {
-            $AppRoleAssignments = Get-MgBetaUserAppRoleAssignment `
-                -UserId $env:MG_PRINCIPAL_ID `
-                -ConsistencyLevel eventual `
-                -CountVariable countVar `
-                -ErrorAction SilentlyContinue `
-                -Verbose:$false
-
-            $PermissionGrants = Get-MgBetaOauth2PermissionGrant `
-                -All `
-                -Filter "PrincipalId eq '$($env:MG_PRINCIPAL_ID)'" `
-                -CountVariable countVar `
-                -ErrorAction SilentlyContinue `
-                -Verbose:$false
-        }
-        else {
-            $AppRoleAssignments = Get-MgBetaServicePrincipalAppRoleAssignment `
-                -ServicePrincipalId $env:MG_PRINCIPAL_ID `
-                -ConsistencyLevel eventual `
-                -CountVariable countVar `
-                -ErrorAction SilentlyContinue `
-                -Verbose:$false
-
-            $PermissionGrants = Get-MgBetaOauth2PermissionGrant `
-                -All `
-                -Filter "ClientId eq '$($env:MG_PRINCIPAL_ID)'" `
-                -CountVariable countVar `
-                -ErrorAction SilentlyContinue `
-                -Verbose:$false
-        }
-
-        if ($null -eq $App) {
-            $Apps = [System.Collections.ArrayList]::new()
-            foreach ($Item in $AppRoleAssignments) {
-                [void] $Apps.Add($Item.ResourceId)
-            }
-        }
-        else {
-            $Apps = $App | Select-Object -Unique
-        }
-
-        foreach ($Item in $Apps) {
-            $DisplayName = $null
-            $AppId = $null
-            $AppResource = $null
-
-            if ($Item -is [String]) {
-                if ($Item -match '^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$') {
-                    $AppId = $Item
-                }
-                else {
-                    $DisplayName = $Item
-                }
-            }
-            elseif ($Item.AppId) {
-                $AppId = $Item.AppId
-            }
-            elseif ($Item.DisplayName) {
-                $DisplayName = $Item.DisplayName
-            }
-
-            if ($AppId) {
-                $AppResource = Get-MgBetaServicePrincipal -All -ConsistencyLevel eventual -Filter "ServicePrincipalType eq 'Application' and (Id eq '$($AppId)') or (appId eq '$($AppId)')" -Verbose:$false
-            }
-            elseif ($DisplayName) {
-                $AppResource = Get-MgBetaServicePrincipal -All -ConsistencyLevel eventual -Filter "ServicePrincipalType eq 'Application' and DisplayName eq '$($DisplayName)'" -Verbose:$false
-            }
-
-            if (-Not $AppResource) {
-                Write-Warning "[COMMON]: - Unable to find application: $DisplayName $(if ($AppId) { $AppId })"
-                continue
-            }
-
-            $AppRoles = [System.Collections.ArrayList]::new()
-            if ($AppRoleAssignments) {
-                foreach ($appRoleId in ($AppRoleAssignments | Where-Object ResourceId -eq $AppResource.Id | Select-Object -ExpandProperty AppRoleId -Unique)) {
-                    [void] $AppRoles.Add(($AppResource.AppRoles | Where-Object Id -eq $appRoleId | Select-Object -ExpandProperty Value))
-                }
-            }
-
-            $Oauth2PermissionScopes = @{}
-            if ($PermissionGrants) {
-                foreach ($Permissions in ($PermissionGrants | Where-Object ResourceId -eq $AppResource.Id)) {
-                    foreach ($Permission in $Permissions) {
-                        $PrincipalTypeName = 'Admin'
-                        if ($Permission.ConsentType -ne 'AllPrincipals') {
-                            $PrincipalTypeName = $Permission.PrincipalId
-                        }
-                        $Permission.Scope.Trim() -split ' ' | ForEach-Object {
-                            if (-Not $Oauth2PermissionScopes.$PrincipalTypeName) {
-                                $Oauth2PermissionScopes.$PrincipalTypeName = [System.Collections.ArrayList]::new()
-                            }
-                            [void] ($Oauth2PermissionScopes.$PrincipalTypeName).Add($_)
-                        }
-                    }
-                }
-            }
-
-            [void] $return.Add(
-                @{
-                    AppId                  = $AppResource.AppId
-                    DisplayName            = $AppResource.DisplayName
-                    AppRoles               = $AppRoles
-                    Oauth2PermissionScopes = $Oauth2PermissionScopes
-                }
-            )
+    if ($null -eq $App) {
+        $Apps = [System.Collections.ArrayList]::new()
+        foreach ($Item in $AppRoleAssignments) {
+            [void] $Apps.Add($Item.ResourceId)
         }
     }
     else {
-        #region [COMMON] ENVIRONMENT ---------------------------------------------------
-        ./Common_0000__Import-Module.ps1 -Modules @(
-            @{ Name = 'Microsoft.Graph.Users'; MinimumVersion = '2.0'; MaximumVersion = '2.65535' }
-            @{ Name = 'Microsoft.Graph.Applications'; MinimumVersion = '2.0'; MaximumVersion = '2.65535' }
-        ) 1> $null
-        #endregion ---------------------------------------------------------------------
+        $Apps = $App | Select-Object -Unique
+    }
 
-        $return = [System.Collections.ArrayList]::new()
+    foreach ($Item in $Apps) {
+        $DisplayName = $null
+        $AppId = $null
+        $AppResource = $null
 
-        if ((Get-MgContext).AuthType -eq 'Delegated') {
-            $AppRoleAssignments = Get-MgUserAppRoleAssignment `
-                -UserId $env:MG_PRINCIPAL_ID `
-                -ConsistencyLevel eventual `
-                -CountVariable countVar `
-                -ErrorAction SilentlyContinue `
-                -Verbose:$false
-
-            $PermissionGrants = Get-MgOauth2PermissionGrant `
-                -All `
-                -Filter "PrincipalId eq '$($env:MG_PRINCIPAL_ID)'" `
-                -CountVariable countVar `
-                -ErrorAction SilentlyContinue `
-                -Verbose:$false
-        }
-        else {
-            $AppRoleAssignments = Get-MgServicePrincipalAppRoleAssignment `
-                -ServicePrincipalId $env:MG_PRINCIPAL_ID `
-                -ConsistencyLevel eventual `
-                -CountVariable countVar `
-                -ErrorAction SilentlyContinue `
-                -Verbose:$false
-
-            $PermissionGrants = Get-MgOauth2PermissionGrant `
-                -All `
-                -Filter "ClientId eq '$($env:MG_PRINCIPAL_ID)'" `
-                -CountVariable countVar `
-                -ErrorAction SilentlyContinue `
-                -Verbose:$false
-        }
-
-        if ($null -eq $App) {
-            $Apps = [System.Collections.ArrayList]::new()
-            foreach ($Item in $AppRoleAssignments) {
-                [void] $Apps.Add($Item.ResourceId)
+        if ($Item -is [String]) {
+            if ($Item -match '^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$') {
+                $AppId = $Item
+            }
+            else {
+                $DisplayName = $Item
             }
         }
-        else {
-            $Apps = $App | Select-Object -Unique
+        elseif ($Item.AppId) {
+            $AppId = $Item.AppId
+        }
+        elseif ($Item.DisplayName) {
+            $DisplayName = $Item.DisplayName
         }
 
-        foreach ($Item in $Apps) {
-            $DisplayName = $null
-            $AppId = $null
-            $AppResource = $null
+        if ($AppId) {
+            $AppResource = @((Invoke-MgGraphRequest -Uri "/v1.0/servicePrincipals?`$filter=servicePrincipalType eq 'Application' and (id eq '$($AppId)' or appId eq '$($AppId)')" -Verbose:$false).value)
+        }
+        elseif ($DisplayName) {
+            $AppResource = @((Invoke-MgGraphRequest -Uri "/v1.0/servicePrincipals?`$filter=servicePrincipalType eq 'Application' and displayName eq '$($DisplayName)'" -Verbose:$false).value)
+        }
 
-            if ($Item -is [String]) {
-                if ($Item -match '^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$') {
-                    $AppId = $Item
-                }
-                else {
-                    $DisplayName = $Item
-                }
-            }
-            elseif ($Item.AppId) {
-                $AppId = $Item.AppId
-            }
-            elseif ($Item.DisplayName) {
-                $DisplayName = $Item.DisplayName
-            }
+        if (-Not $AppResource) {
+            Write-Warning "[COMMON]: - Unable to find application: $DisplayName $(if ($AppId) { $AppId })"
+            continue
+        }
 
-            if ($AppId) {
-                $AppResource = Get-MgServicePrincipal -All -ConsistencyLevel eventual -Filter "ServicePrincipalType eq 'Application' and (Id eq '$($AppId)') or (appId eq '$($AppId)')" -Verbose:$false
+        $AppRoles = [System.Collections.ArrayList]::new()
+        if ($AppRoleAssignments) {
+            foreach ($appRoleId in ($AppRoleAssignments | Where-Object ResourceId -eq $AppResource.Id | Select-Object -ExpandProperty AppRoleId -Unique)) {
+                [void] $AppRoles.Add(($AppResource.AppRoles | Where-Object Id -eq $appRoleId | Select-Object -ExpandProperty Value))
             }
-            elseif ($DisplayName) {
-                $AppResource = Get-MgServicePrincipal -All -ConsistencyLevel eventual -Filter "ServicePrincipalType eq 'Application' and DisplayName eq '$($DisplayName)'" -Verbose:$false
-            }
+        }
 
-            if (-Not $AppResource) {
-                Write-Warning "[COMMON]: - Unable to find application: $DisplayName $(if ($AppId) { $AppId })"
-                continue
-            }
-
-            $AppRoles = [System.Collections.ArrayList]::new()
-            if ($AppRoleAssignments) {
-                foreach ($appRoleId in ($AppRoleAssignments | Where-Object ResourceId -eq $AppResource.Id | Select-Object -ExpandProperty AppRoleId -Unique)) {
-                    [void] $AppRoles.Add(($AppResource.AppRoles | Where-Object Id -eq $appRoleId | Select-Object -ExpandProperty Value))
-                }
-            }
-
-            $Oauth2PermissionScopes = @{}
-            if ($PermissionGrants) {
-                foreach ($Permissions in ($PermissionGrants | Where-Object ResourceId -eq $AppResource.Id)) {
-                    foreach ($Permission in $Permissions) {
-                        $PrincipalTypeName = 'Admin'
-                        if ($Permission.ConsentType -ne 'AllPrincipals') {
-                            $PrincipalTypeName = $Permission.PrincipalId
+        $Oauth2PermissionScopes = @{}
+        if ($PermissionGrants) {
+            foreach ($Permissions in ($PermissionGrants | Where-Object ResourceId -eq $AppResource.Id)) {
+                foreach ($Permission in $Permissions) {
+                    $PrincipalTypeName = 'Admin'
+                    if ($Permission.ConsentType -ne 'AllPrincipals') {
+                        $PrincipalTypeName = $Permission.PrincipalId
+                    }
+                    $Permission.Scope.Trim() -split ' ' | ForEach-Object {
+                        if (-Not $Oauth2PermissionScopes.$PrincipalTypeName) {
+                            $Oauth2PermissionScopes.$PrincipalTypeName = [System.Collections.ArrayList]::new()
                         }
-                        $Permission.Scope.Trim() -split ' ' | ForEach-Object {
-                            if (-Not $Oauth2PermissionScopes.$PrincipalTypeName) {
-                                $Oauth2PermissionScopes.$PrincipalTypeName = [System.Collections.ArrayList]::new()
-                            }
-                            [void] ($Oauth2PermissionScopes.$PrincipalTypeName).Add($_)
-                        }
+                        [void] ($Oauth2PermissionScopes.$PrincipalTypeName).Add($_)
                     }
                 }
             }
-
-            [void] $return.Add(
-                @{
-                    AppId                  = $AppResource.AppId
-                    DisplayName            = $AppResource.DisplayName
-                    AppRoles               = $AppRoles
-                    Oauth2PermissionScopes = $Oauth2PermissionScopes
-                }
-            )
         }
+
+        [void] $return.Add(
+            @{
+                AppId                  = $AppResource.AppId
+                DisplayName            = $AppResource.DisplayName
+                AppRoles               = $AppRoles
+                Oauth2PermissionScopes = $Oauth2PermissionScopes
+            }
+        )
     }
 }
 catch {

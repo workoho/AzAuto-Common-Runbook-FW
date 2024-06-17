@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.1.0
 .GUID 0a0e5eb3-0470-427e-b264-9bab18f90617
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-06-06)
-    - Initial release.
+    Version 1.1.0 (2024-06-17)
+    - Reduce verbose output.
 #>
 
 <#
@@ -42,7 +42,10 @@ Param(
 )
 
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
-Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
+if (-Not $Global:hasRunBefore) { $Global:hasRunBefore = @{} }
+if (-Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name)) {
+    Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
+}
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
 $maxRetries = 5
@@ -81,6 +84,7 @@ do {
             $waitTime += $jitter
             Clear-Variable -Name response
             [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
 
             if ($_.Exception.Response.StatusCode -eq 429) {
                 Write-Verbose "[COMMON]: - Rate limit exceeded, retrying in $waitTime seconds..."
@@ -106,6 +110,9 @@ if ($rateLimitExceeded) {
 }
 
 Get-Variable | Where-Object { $StartupVariables -notcontains $_.Name } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
-Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
+if (-Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name)) {
+    $Global:hasRunBefore[(Get-Item $PSCommandPath).Name] = $true
+    Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
+}
 
 return $response

@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.1.1
 .GUID c2401e63-ecea-4895-b13a-7b63340215fd
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-06-11)
-    - Remove implicit dependency on Az.Resources and Microsoft.Graph.Users modules.
+    Version 1.1.1 (2024-06-17)
+    - Minor improvements.
 #>
 
 <#
@@ -62,8 +62,7 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
 
 $missingRoles = [System.Collections.ArrayList]::new()
 $currentUserGroups = @((./Common_0001__Invoke-MgGraphRequest.ps1 @{
-    Method = 'GET'
-    Uri    = "https://graph.microsoft.com/v1.0/users/$((Get-AzContext).Account.ExtendedProperties.HomeAccountId.Split('.')[0])/transitiveMemberOf"
+    Uri    = "/v1.0/users/$((Get-AzContext).Account.ExtendedProperties.HomeAccountId.Split('.')[0])/transitiveMemberOf"
 }).value.id)
 $return = @{}
 $cache = @{}

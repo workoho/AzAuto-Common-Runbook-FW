@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.1
+.VERSION 1.0.2
 .GUID 66ac2035-7460-40e8-a4c2-aa7e0816f117
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.1 (2024-04-17)
-    - fix SMS sign in detection
+    Version 1.0.2 (2024-06-17)
+    - Fix issue with the script not being able to determine the user type correctly.
 #>
 
 <#
@@ -70,10 +70,12 @@ $return = @{
     GuestOrExternalUserType  = $null
 }
 
-if (-Not [string]::IsNullOrEmpty($UserObject.Identities)) {
+$identities = @($UserObject.Identities)
+
+if ($null -ne $UserObject.Identities -and $UserObject.Identities.Count -gt 0) {
     if (
-        (($UserObject.Identities).Issuer -contains 'mail') -or
-        (($UserObject.Identities).SignInType -contains 'emailAddress')
+        ($identities.Issuer -contains 'mail') -or
+        ($identities.SignInType -contains 'emailAddress')
     ) {
         Write-Verbose '[COMMON]: - IsEmailOTPAuthentication'
         $return.IsEmailOTPAuthentication = $true
@@ -82,7 +84,7 @@ if (-Not [string]::IsNullOrEmpty($UserObject.Identities)) {
         $return.IsEmailOTPAuthentication = $false
     }
 
-    if (($UserObject.Identities).Issuer -contains 'phone') {
+    if ($identities.Issuer -contains 'phone') {
         Write-Verbose '[COMMON]: - IsSMSOTPAuthentication'
         $return.IsSMSOTPAuthentication = $true
     }
@@ -90,7 +92,7 @@ if (-Not [string]::IsNullOrEmpty($UserObject.Identities)) {
         $return.IsSMSOTPAuthentication = $false
     }
 
-    if (($UserObject.Identities).Issuer -contains 'facebook.com') {
+    if ($identities.Issuer -contains 'facebook.com') {
         Write-Verbose '[COMMON]: - IsFacebookAccount'
         $return.IsFacebookAccount = $true
     }
@@ -98,7 +100,7 @@ if (-Not [string]::IsNullOrEmpty($UserObject.Identities)) {
         $return.IsFacebookAccount = $false
     }
 
-    if (($UserObject.Identities).Issuer -contains 'google.com') {
+    if ($identities.Issuer -contains 'google.com') {
         Write-Verbose '[COMMON]: - IsGoogleAccount'
         $return.IsGoogleAccount = $true
     }
@@ -106,7 +108,7 @@ if (-Not [string]::IsNullOrEmpty($UserObject.Identities)) {
         $return.IsGoogleAccount = $false
     }
 
-    if (($UserObject.Identities).Issuer -contains 'MicrosoftAccount') {
+    if ($identities.Issuer -contains 'MicrosoftAccount') {
         Write-Verbose '[COMMON]: - IsMicrosoftAccount'
         $return.IsMicrosoftAccount = $true
     }
@@ -114,7 +116,7 @@ if (-Not [string]::IsNullOrEmpty($UserObject.Identities)) {
         $return.IsMicrosoftAccount = $false
     }
 
-    if (($UserObject.Identities).Issuer -contains 'ExternalAzureAD') {
+    if ($identities.Issuer -contains 'ExternalAzureAD') {
         Write-Verbose '[COMMON]: - ExternalAzureAD'
         $return.IsExternalEntraAccount = $true
     }
@@ -124,7 +126,7 @@ if (-Not [string]::IsNullOrEmpty($UserObject.Identities)) {
 
     if (
         $return.IsSMSOTPAuthentication -eq $false -and
-        ($UserObject.Identities).SignInType -contains 'federated'
+        $identities.SignInType -contains 'federated'
     ) {
         Write-Verbose '[COMMON]: - IsFederated'
         $return.IsFederated = $true

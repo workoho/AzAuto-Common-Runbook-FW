@@ -189,7 +189,6 @@ try {
         ResourceProviderName = 'Microsoft.Automation'
         ResourceType         = 'automationAccounts', 'runtimeEnvironments'
         ApiVersion           = $AzApiVersion
-        Method               = 'GET'
     }
     if ($commonBoundParameters) { $params += $commonBoundParameters }
     $runtimeEnvironments = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value
@@ -442,7 +441,6 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                             ResourceProviderName = 'Microsoft.Automation'
                             ResourceType         = 'automationAccounts', 'runtimeEnvironments', 'packages'
                             ApiVersion           = $AzApiVersion
-                            Method               = 'GET'
                         }
                         if ($commonBoundParameters) { $params += $commonBoundParameters }
                         $installedPackages = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value
@@ -543,7 +541,6 @@ $config.AutomationRuntimeEnvironment.GetEnumerator() | Sort-Object { if ($_.Key 
                                         ResourceProviderName = 'Microsoft.Automation'
                                         ResourceType         = 'automationAccounts', 'runtimeEnvironments', 'packages'
                                         ApiVersion           = $AzApiVersion
-                                        Method               = 'GET'
                                     }
                                     if ($commonBoundParameters) { $params += $commonBoundParameters }
 

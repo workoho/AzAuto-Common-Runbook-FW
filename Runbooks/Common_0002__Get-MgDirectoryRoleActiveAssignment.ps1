@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID 3e9f0b5b-be2f-4c10-bdfa-25d8b4550e67
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-06-17)
+    - Minor improvements.
 #>
 
 <#
@@ -41,9 +41,7 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
 
 # Avoid using Microsoft.Graph.Identity.Governance module as it requires too much memory in Azure Automation
 $params = @{
-    OutputType  = 'PSObject'
-    Method      = 'GET'
-    Uri         = "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments?`$filter=PrincipalId eq %27$($env:MG_PRINCIPAL_ID)%27&`$expand=roleDefinition"
+    Uri         = "/v1.0/roleManagement/directory/roleAssignments?`$filter=PrincipalId eq %27$($env:MG_PRINCIPAL_ID)%27&`$expand=roleDefinition"
     ErrorAction = 'Stop'
     Verbose     = $false
 }

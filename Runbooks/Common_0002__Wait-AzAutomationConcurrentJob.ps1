@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.3.0
+.VERSION 1.4.0
 .GUID 7c2ab51e-4863-474e-bfcf-6854d3c3a688
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,9 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.3.0 (2024-06-06)
-    - Use Invoke-AzRestMethod
+    Version 1.4.0 (2024-06-17)
+    - Immediate info-warning when waiting for concurrent jobs.
+    - Minor improvements.
 #>
 
 <#
@@ -65,8 +66,8 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
         $WaitMin = 25000
         $WaitMax = 30000
         $WaitStep = 100
-        $warningCounter = 0
         $warningInterval = 180  # 3 minutes / 1 second sleep
+        $warningCounter = $warningInterval  # Start with a warning after the first sleep
 
         do {
             $activeJobs = New-Object System.Collections.ArrayList
@@ -74,7 +75,6 @@ if ('AzureAutomation/' -eq $env:AZUREPS_HOST_ENVIRONMENT -or $PSPrivateMetadata.
             try {
                 # Get all jobs for the runbook and process using pipeline to avoid memory issues
                 $params = @{
-                    Method      = 'GET'
                     Path        = "$($env:AZURE_AUTOMATION_AccountId)/jobs?api-version=2023-11-01"
                     ErrorAction = 'Stop'
                     Verbose     = $false

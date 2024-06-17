@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.0
+.VERSION 1.2.1
 .GUID e392dfb1-8ca4-4f5c-b073-c453ce004891
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.0 (2024-06-11)
-    - Remove dependency on Az.Monitor and Az.Resources modules
+    Version 1.2.1 (2024-06-17)
+    - Minor improvements.
 #>
 
 <#
@@ -69,7 +69,6 @@ if (
             $TimeoutLoop++
 
             $params = @{
-                Method = 'GET'
                 Path   = "/subscriptions/$((Get-AzContext).Subscription.Id)/providers/Microsoft.Insights/EventTypes/management/values?`$select=Authorization,Caller&`$filter=eventTimestamp ge $([System.Web.HttpUtility]::UrlEncode($StartTime.ToString('o'))) and resourceGroupName eq '$($env:AZURE_AUTOMATION_ResourceGroupName)'&api-version=2015-04-01"
             }
             $Log = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value | Where-Object { $_.authorization.action -eq 'Microsoft.Automation/automationAccounts/jobs/write' -and $_.authorization.scope -like "*$($PSPrivateMetadata.JobId)" }
@@ -81,6 +80,7 @@ if (
 
             $Log = $null
             [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
             if ($null -eq $return.StartedBy) { Start-Sleep 10 }
         }
     }

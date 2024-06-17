@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.0
+.VERSION 1.3.0
 .GUID 05273e10-2a70-42aa-82d3-7881324beead
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.0 (2024-06-15)
-    - Redirect output of Connect-MgGraph to Out-Host when using device code authentication
+    Version 1.3.0 (2024-06-17)
+    - Reduce verbose output.
 #>
 
 <#
@@ -53,7 +53,10 @@ Param(
 )
 
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
-Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
+if (-Not $Global:hasRunBefore) { $Global:hasRunBefore = @{} }
+if (-Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name)) {
+    Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
+}
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
 # It is important to run Connect-AzAccount first to avoid conflicts with the Microsoft Graph modules in PowerShell 5.1
@@ -196,12 +199,12 @@ if (
         if ($Context.AuthType -eq 'Delegated') {
             [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_TYPE', 'Delegated')
             Write-Verbose "[COMMON]: - Getting user details for $($Context.Account) ..."
-            $Principal = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/users/$($Context.Account)?`$select=id,displayName" -ErrorAction Stop -Verbose:$false
+            $Principal = Invoke-MgGraphRequest -Uri "/v1.0/users/$($Context.Account)?`$select=id,displayName" -ErrorAction Stop -Verbose:$false
         }
         else {
             [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_TYPE', 'Application')
             Write-Verbose "[COMMON]: - Getting service principal details for $($Context.ClientId) ..."
-            $Principal = (Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/servicePrincipals?`$select=id,displayName&`$filter=appId eq '$($Context.ClientId)'" -ErrorAction Stop -Verbose:$false).Value[0]
+            $Principal = (Invoke-MgGraphRequest -Uri "/v1.0/servicePrincipals?`$select=id,displayName&`$filter=appId eq '$($Context.ClientId)'" -ErrorAction Stop -Verbose:$false).Value[0]
         }
 
         Write-Verbose "[COMMON]: - Setting environment MG_PRINCIPAL_ID to '$($Principal.Id)' and MG_PRINCIPAL_DISPLAYNAME to '$($Principal.DisplayName)' ..."
@@ -218,4 +221,7 @@ if (
 }
 
 Get-Variable | Where-Object { $StartupVariables -notcontains $_.Name } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
-Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
+if (-Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name)) {
+    $Global:hasRunBefore[(Get-Item $PSCommandPath).Name] = $true
+    Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
+}

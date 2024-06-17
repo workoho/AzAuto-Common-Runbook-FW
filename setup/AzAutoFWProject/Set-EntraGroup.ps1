@@ -355,14 +355,13 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
 
                 try {
                     $params = @{
-                        OutputType = 'PSObject'
                         Method     = 'POST'
                         Uri        = $(
                             if ($null -ne $configValue.AdministrativeUnit -and -not [string]::IsNullOrEmpty($configValue.AdministrativeUnit.Id)) {
-                                "https://graph.microsoft.com/v1.0/directory/administrativeUnits/$($configValue.AdministrativeUnit.Id)/members"
+                                "/v1.0/directory/administrativeUnits/$($configValue.AdministrativeUnit.Id)/members"
                             }
                             else {
-                                "https://graph.microsoft.com/v1.0/groups"
+                                "/v1.0/groups"
                             }
                         )
                         Body       = $configValue.Clone()
@@ -635,9 +634,8 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
 
                     try {
                         $params = @{
-                            OutputType = 'PSObject'
                             Method     = 'PATCH'
-                            Uri        = "https://graph.microsoft.com/v1.0/groups/$($currentValue.Id)"
+                            Uri        = "/v1.0/groups/$($currentValue.Id)"
                             Body       = $updateProperty
                         }
                         if ($commonBoundParameters) { $params += $commonBoundParameters }

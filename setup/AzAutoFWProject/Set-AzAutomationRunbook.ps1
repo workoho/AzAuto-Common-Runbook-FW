@@ -467,7 +467,6 @@ try {
         ResourceProviderName = 'Microsoft.Automation'
         ResourceType         = 'automationAccounts', 'runtimeEnvironments'
         ApiVersion           = $AzApiVersion
-        Method               = 'GET'
     }
     if ($commonBoundParameters) { $params += $commonBoundParameters }
     $runtimeEnvironments = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value
@@ -483,7 +482,6 @@ try {
         ResourceProviderName = 'Microsoft.Automation'
         ResourceType         = 'automationAccounts', 'runbooks'
         ApiVersion           = $AzApiVersion
-        Method               = 'GET'
     }
     if ($commonBoundParameters) { $params += $commonBoundParameters }
     $runbooks = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value

@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.4.1
+.VERSION 1.5.0
 .GUID 1dc765c0-4922-4142-a945-13206df25f13
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.4.1 (2024-06-15)
-    - Validate subscription ID
+    Version 1.5.0 (2024-06-17)
+    - Reduce verbose output.
 #>
 
 <#
@@ -71,7 +71,10 @@ Param(
 )
 
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
-Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
+if (-Not $Global:hasRunBefore) { $Global:hasRunBefore = @{} }
+if (-Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name)) {
+    Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
+}
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
 #region [COMMON] ENVIRONMENT ---------------------------------------------------
@@ -129,7 +132,7 @@ function Set-EnvVarsAfterMgConnect {
         #endregion ---------------------------------------------------------------------
 
         try {
-            $AzAutomationAccount = ((Az.Accounts\Invoke-AzRestMethod -Method Get -Path "/subscriptions/$((Az.Accounts\Get-AzContext).Subscription.Id)/providers/Microsoft.Automation/automationAccounts?api-version=$apiVersion" -ErrorAction Stop).Content | ConvertFrom-Json).Value | Where-Object { $_.name -eq $env:MG_PRINCIPAL_DISPLAYNAME }
+            $AzAutomationAccount = ((Az.Accounts\Invoke-AzRestMethod -Path "/subscriptions/$((Az.Accounts\Get-AzContext).Subscription.Id)/providers/Microsoft.Automation/automationAccounts?api-version=$apiVersion" -ErrorAction Stop).Content | ConvertFrom-Json).Value | Where-Object { $_.name -eq $env:MG_PRINCIPAL_DISPLAYNAME }
             if ($AzAutomationAccount) {
                 Write-Verbose '[COMMON]: - Retrieved Automation Account details'
                 $null, $null, $subscriptionId, $null, $resourceGroupName, $null, $null, $null, $automationAccountName = $AzAutomationAccount.id -split '/'
@@ -143,14 +146,14 @@ function Set-EnvVarsAfterMgConnect {
 
                 if ($PSPrivateMetadata.JobId) {
 
-                    $AzAutomationJob = (Az.Accounts\Invoke-AzRestMethod -Method Get -Path "$($AzAutomationAccount.id)/jobs/$($PSPrivateMetadata.JobId)?api-version=$apiVersion" -ErrorAction Stop).Content | ConvertFrom-Json
+                    $AzAutomationJob = (Az.Accounts\Invoke-AzRestMethod -Path "$($AzAutomationAccount.id)/jobs/$($PSPrivateMetadata.JobId)?api-version=$apiVersion" -ErrorAction Stop).Content | ConvertFrom-Json
                     if ($AzAutomationJob) {
                         Write-Verbose '[COMMON]: - Retrieved Automation Job details'
                         [Environment]::SetEnvironmentVariable('AZURE_AUTOMATION_RUNBOOK_Name', $AzAutomationJob.properties.runbook.name)
                         [Environment]::SetEnvironmentVariable('AZURE_AUTOMATION_RUNBOOK_JOB_CreationTime', [DateTime]::Parse($AzAutomationJob.properties.creationTime).ToUniversalTime())
                         [Environment]::SetEnvironmentVariable('AZURE_AUTOMATION_RUNBOOK_JOB_StartTime', [DateTime]::Parse($AzAutomationJob.properties.startTime).ToUniversalTime())
 
-                        $AzAutomationRunbook = (Az.Accounts\Invoke-AzRestMethod -Method Get -Path "$($AzAutomationAccount.id)/runbooks/$($AzAutomationJob.properties.runbook.name)?api-version=$apiVersion" -ErrorAction Stop).Content | ConvertFrom-Json
+                        $AzAutomationRunbook = (Az.Accounts\Invoke-AzRestMethod -Path "$($AzAutomationAccount.id)/runbooks/$($AzAutomationJob.properties.runbook.name)?api-version=$apiVersion" -ErrorAction Stop).Content | ConvertFrom-Json
                         if ($AzAutomationRunbook) {
                             Write-Verbose '[COMMON]: - Retrieved Automation Runbook details'
                             [Environment]::SetEnvironmentVariable('AZURE_AUTOMATION_RUNBOOK_CreationTime', [DateTime]::Parse($AzAutomationRunbook.properties.creationTime).ToUniversalTime())
@@ -250,4 +253,7 @@ else {
 }
 
 Get-Variable | Where-Object { $StartupVariables -notcontains @($_.Name, 'return') } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
-Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
+if (-Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name)) {
+    $Global:hasRunBefore[(Get-Item $PSCommandPath).Name] = $true
+    Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
+}

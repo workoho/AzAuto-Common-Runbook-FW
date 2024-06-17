@@ -133,9 +133,7 @@ $config.AdministrativeUnit.GetEnumerator() | Sort-Object -Property { $_.Value.Di
             if ($AdministrativeUnit -and $AdministrativeUnit -notcontains $configValue.Id) { return }
             Write-Verbose "Searching for administrative unit with ID '$($configValue.Id)'"
             $params = @{
-                OutputType  = 'PSObject'
-                Method      = 'GET'
-                Uri         = "https://graph.microsoft.com/beta/administrativeUnits/$($configValue.Id)"
+                Uri         = "/beta/administrativeUnits/$($configValue.Id)"
                 ErrorAction = 'SilentlyContinue'
             }
             $params.Verbose = $false
@@ -145,9 +143,7 @@ $config.AdministrativeUnit.GetEnumerator() | Sort-Object -Property { $_.Value.Di
             if ($AdministrativeUnit -and $AdministrativeUnit -notcontains $configValue.DisplayName) { return }
             Write-Verbose "Searching for administrative unit with display name '$($configValue.DisplayName)'"
             $params = @{
-                OutputType  = 'PSObject'
-                Method      = 'GET'
-                Uri         = "https://graph.microsoft.com/beta/administrativeUnits/?`$filter=displayName eq '$($configValue.DisplayName)'"
+                Uri         = "/beta/administrativeUnits?`$filter=displayName eq '$($configValue.DisplayName)'"
                 ErrorAction = 'SilentlyContinue'
             }
             $params.Verbose = $false
@@ -232,9 +228,8 @@ $config.AdministrativeUnit.GetEnumerator() | Sort-Object -Property { $_.Value.Di
 
                 try {
                     $params = @{
-                        OutputType = 'PSObject'
                         Method     = 'POST'
-                        Uri        = "https://graph.microsoft.com/beta/administrativeUnits"
+                        Uri        = "/beta/administrativeUnits"
                         Body       = $configValue.Clone()
                     }
                     $params.Body.Remove('Id')
@@ -255,7 +250,7 @@ $config.AdministrativeUnit.GetEnumerator() | Sort-Object -Property { $_.Value.Di
 
                 if ($null -eq $DirectoryRoleDefinitions) { $DirectoryRoleDefinitions = Get-MgRoleManagementDirectoryRoleDefinition }
                 if ($null -eq $TenantIsPIMEnabled) {
-                    $TenantHasPremiumP2 = ((Invoke-MgGraphRequest -Method 'GET' -Uri "https://graph.microsoft.com/v1.0/organization" -OutputType 'PSObject' -ErrorAction 'Stop').Value.AssignedPlans | Where-Object ServicePlanId -eq '41781fb2-bc02-4b7c-bd55-b576c07bb09d' | Sort-Object AssignedDateTime | Select-Object -Last 1).CapabilityStatus -eq 'Enabled'
+                    $TenantHasPremiumP2 = ((Invoke-MgGraphRequest -Uri "/v1.0/organization" -ErrorAction 'Stop').Value.AssignedPlans | Where-Object ServicePlanId -eq '41781fb2-bc02-4b7c-bd55-b576c07bb09d' | Sort-Object AssignedDateTime | Select-Object -Last 1).CapabilityStatus -eq 'Enabled'
                     Write-Verbose "Microsoft Entra ID P2 licensing for Privileged Identity Management is: $(if ($TenantHasPremiumP2) { 'available' } else { 'NOT available' })"
                 }
 
@@ -581,9 +576,8 @@ $config.AdministrativeUnit.GetEnumerator() | Sort-Object -Property { $_.Value.Di
 
                     try {
                         $params = @{
-                            OutputType = 'PSObject'
                             Method     = 'PATCH'
-                            Uri        = "https://graph.microsoft.com/beta/administrativeUnits/$($currentValue.Id)"
+                            Uri        = "/beta/administrativeUnits/$($currentValue.Id)"
                             Body       = $updateProperty
                         }
                         if ($commonBoundParameters) { $params += $commonBoundParameters }
