@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 0.0.2
+.VERSION 0.0.3
 .GUID b39dc20f-f5de-4f6b-958e-41762df89805
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,7 +12,7 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 0.0.2 (2024-06-17)
+    Version 0.0.3 (2024-06-18)
     - Initial draft.
     - Requires re-write in conjunction with the Common_0003__Confirm-MgAppPermission.ps1 runbook.
 #>
@@ -102,20 +102,20 @@ try {
 
         $AppRoles = [System.Collections.ArrayList]::new()
         if ($AppRoleAssignments) {
-            foreach ($appRoleId in ($AppRoleAssignments | Where-Object ResourceId -eq $AppResource.Id | Select-Object -ExpandProperty AppRoleId -Unique)) {
-                [void] $AppRoles.Add(($AppResource.AppRoles | Where-Object Id -eq $appRoleId | Select-Object -ExpandProperty Value))
+            foreach ($appRoleId in (($AppRoleAssignments | Where-Object resourceId -eq $AppResource.id).appRoleId | Select-Object -Unique)) {
+                [void] $AppRoles.Add(($AppResource.appRoles | Where-Object id -eq $appRoleId).value)
             }
         }
 
         $Oauth2PermissionScopes = @{}
         if ($PermissionGrants) {
-            foreach ($Permissions in ($PermissionGrants | Where-Object ResourceId -eq $AppResource.Id)) {
+            foreach ($Permissions in ($PermissionGrants | Where-Object resourceId -eq $AppResource.id)) {
                 foreach ($Permission in $Permissions) {
                     $PrincipalTypeName = 'Admin'
-                    if ($Permission.ConsentType -ne 'AllPrincipals') {
-                        $PrincipalTypeName = $Permission.PrincipalId
+                    if ($Permission.consentType -ne 'AllPrincipals') {
+                        $PrincipalTypeName = $Permission.principalId
                     }
-                    $Permission.Scope.Trim() -split ' ' | ForEach-Object {
+                    $Permission.scope.Trim() -split ' ' | ForEach-Object {
                         if (-Not $Oauth2PermissionScopes.$PrincipalTypeName) {
                             $Oauth2PermissionScopes.$PrincipalTypeName = [System.Collections.ArrayList]::new()
                         }
@@ -127,8 +127,8 @@ try {
 
         [void] $return.Add(
             @{
-                AppId                  = $AppResource.AppId
-                DisplayName            = $AppResource.DisplayName
+                AppId                  = $AppResource.appId
+                DisplayName            = $AppResource.displayName
                 AppRoles               = $AppRoles
                 Oauth2PermissionScopes = $Oauth2PermissionScopes
             }
