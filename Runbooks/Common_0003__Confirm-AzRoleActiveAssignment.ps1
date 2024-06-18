@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.1
+.VERSION 1.1.2
 .GUID c2401e63-ecea-4895-b13a-7b63340215fd
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.1 (2024-06-17)
-    - Minor improvements.
+    Version 1.1.2 (2024-06-18)
+    - Fixed a bug where the script would not correctly check for roles.
 #>
 
 <#
@@ -61,8 +61,9 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
 ./Common_0001__Connect-MgGraph.ps1 # Connect to Microsoft Graph and implicitly to Azure cloud
 
 $missingRoles = [System.Collections.ArrayList]::new()
+$currentUserId = (Get-AzContext).Account.ExtendedProperties.HomeAccountId.Split('.')[0]
 $currentUserGroups = @((./Common_0001__Invoke-MgGraphRequest.ps1 @{
-    Uri    = "/v1.0/users/$((Get-AzContext).Account.ExtendedProperties.HomeAccountId.Split('.')[0])/transitiveMemberOf"
+    Uri    = "/v1.0/users/$currentUserId/transitiveMemberOf"
 }).value.id)
 $return = @{}
 $cache = @{}
@@ -146,7 +147,7 @@ $Roles.GetEnumerator() | & {
 
                 $found = $cache[$Scope] | Where-Object {
                     $_.ObjectType -eq 'User' -and
-                    $_.ObjectId -eq $currentUser.Id -and (
+                    $_.ObjectId -eq $currentUserId -and (
                         ($_.RoleDefinitionId -eq $Role.RoleDefinitionId) -or
                         ($_.RoleDefinitionName -eq $Role.DisplayName)
                     )
@@ -185,7 +186,7 @@ $Roles.GetEnumerator() | & {
 
                         $found = $cache[$Scope] | Where-Object {
                             $_.ObjectType -eq 'User' -and
-                            $_.ObjectId -eq $currentUser.Id -and (
+                            $_.ObjectId -eq $currentUserId -and (
                                 ($_.RoleDefinitionId -eq $higherRole.Id) -or
                                 ($_.RoleDefinitionName -eq $higherRoleDisplayName)
                             )
