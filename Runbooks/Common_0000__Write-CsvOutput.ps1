@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.1
+.VERSION 1.1.0
 .GUID 7086a21d-f021-4f05-99a7-ec2a6de6f749
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.1 (2024-06-04)
-    - Remove SAS token from output when uploading to Azure Storage
+    Version 1.1.0 (2024-06-19)
+    - Add Metadata, FileEncoding, and FileNewLine parameters.
 #>
 
 <#
@@ -37,6 +37,10 @@
 .PARAMETER BooleanFalseValue
     Specifies the value to be used for boolean false values. Default is '0'.
 
+.PARAMETER Metadata
+    Specifies the metadata to be added to the CSV file. The metadata is added as a comment at the end of the CSV file.
+    The metadata should be an array of hash tables with key-value pairs. The keys are used as column headers and the values as column values.
+
 .PARAMETER StorageUri
     Specifies the URI of the storage where the CSV file should be uploaded.
     If this parameter is specified, the CSV file will be uploaded to the specified storage.
@@ -50,6 +54,16 @@
     Remember that general Owner or Contributor roles are NOT sufficient for uploading blobs to a storage account.
 
     For information compliance reasons, consider to configure retention policies for the storage account and the blob container if you are uploading sensitive data like personal identifiable information (PII).
+
+.PARAMETER FileEncoding
+    Specifies the encoding to be used when writing the CSV file. Default is 'utf8BOM'.
+    Possible values are 'ansi', 'ascii', 'bigendianunicode', 'bigendianutf32', 'oem', 'unicode', 'utf7', 'utf8', 'utf8BOM', 'utf8NoBOM', 'utf32'.
+
+    Note that utf8BOM stands for UTF-8 with Byte Order Mark (BOM) and utf8NoBOM stands for UTF-8 without BOM.
+    A BOM helps to identify the encoding of a file, like for Microsoft Excel. However, some applications may not support BOMs, or use other techniques to identify the encoding.
+
+.PARAMETER FileNewLine
+    Specifies the newline character to be used when writing the CSV file. Default is "`r`n" to use Windows-style line endings (CRLF).
 
 .EXAMPLE
     PS> Common_0000__Write-CsvOutput.ps1 -InputObject $data
@@ -71,21 +85,34 @@
 Param(
     [Parameter(Mandatory = $true)]
     $InputObject,
+    $Metadata,
 
     [hashtable] $ConvertToParam,
     [string] $BooleanTrueValue = '1',
     [string] $BooleanFalseValue = '0',
-    [string] $StorageUri
+    [string] $StorageUri,
+    [string] $FileEncoding = 'utf8BOM',
+    [string] $FileNewLine = "`r`n"
 )
 
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
-# Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
+if ($null -eq $InputObject -or $InputObject.count -eq 0) { exit }
+if (-Not $Global:hasRunBefore) { $Global:hasRunBefore = @{} }
+if (-Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name)) {
+    Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
+}
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
 $params = if ($ConvertToParam) { $ConvertToParam.Clone() } else { @{} }
 if ($null -eq $params.NoTypeInformation -and ($null -eq $params.IncludeTypeInformation -or $params.IncludeTypeInformation -eq $false)) {
     $params.Remove('IncludeTypeInformation')
     $params.NoTypeInformation = $true # use NoTypeInformation for PowerShell 5.1 backwards compatibility
+}
+if ($null -eq $params.UseQuotes) {
+    $params.UseQuotes = 'Always'
+}
+if ($null -eq $params.Delimiter) {
+    $params.Delimiter = ','
 }
 if ($null -eq $params.ErrorAction) {
     $params.ErrorAction = 'Stop'
@@ -94,7 +121,7 @@ if ($null -eq $params.ErrorAction) {
 function Convert-PropertyValues {
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [PSObject]$Obj
+        [PSObject] $Obj
     )
 
     process {
@@ -118,20 +145,93 @@ function Convert-PropertyValues {
 try {
     if ($StorageUri) {
         $tempFile = [System.IO.Path]::GetTempFileName()
-        $streamWriter = New-Object System.IO.StreamWriter($tempFile, $false, [System.Text.Encoding]::UTF8)
+        $encodingObject = switch ($FileEncoding) {
+            "ansi" { [System.Text.Encoding]::Default }
+            "ascii" { [System.Text.Encoding]::ASCII }
+            "bigendianunicode" { [System.Text.Encoding]::BigEndianUnicode }
+            "bigendianutf32" { [System.Text.Encoding]::BigEndianUTF32 }
+            "oem" { [System.Text.Encoding]::Default }
+            "unicode" { [System.Text.Encoding]::Unicode }
+            "utf7" { [System.Text.Encoding]::UTF7 }
+            "utf8" { New-Object System.Text.UTF8Encoding($false) }
+            "utf8BOM" { New-Object System.Text.UTF8Encoding($true) }
+            "utf8NoBOM" { New-Object System.Text.UTF8Encoding($false) }
+            "utf32" { [System.Text.Encoding]::UTF32 }
+            default { New-Object System.Text.UTF8Encoding($true) }
+        }
+        $streamWriter = New-Object System.IO.StreamWriter($tempFile, $false, $encodingObject)
+        $streamWriter.NewLine = $FileNewLine
         try {
             $InputObject | Convert-PropertyValues | ConvertTo-Csv @params | & { process { $streamWriter.WriteLine($_) } }
+
+            if (
+                (
+                    $Metadata -is [hashtable] -and
+                    $Metadata.GetEnumerator().Count -gt 0
+                ) -or
+                (
+                    $Metadata -is [pscustomobject] -and
+                    $Metadata.PSObject.Properties.Count -gt 0
+                )
+            ) {
+                $streamWriter.Close()
+                $missingColumnsString = $params.Delimiter * (Get-Content $tempFile -TotalCount 1 | & { process { $_ | ConvertFrom-Csv -Header $_.Split($params.Delimiter) -Delimiter $params.Delimiter } } | Get-Member -MemberType NoteProperty | Measure-Object).Count
+                $streamWriter = New-Object System.IO.StreamWriter($tempFile, $true)
+                $streamWriter.WriteLine('')
+                $Metadata | & { process { if ($_ -is [hashtable]) { $_.GetEnumerator() } else { $_.PSObject.properties } } } | Convert-PropertyValues | & { process {
+                        $key = "# $($_.Name)"
+                        $val = $_.Value | & {
+                            process {
+                                if ($_ -is [array]) {
+                                    $_ -join ', '
+                                }
+                                else {
+                                    $_
+                                }
+                            }
+                        }
+
+                        if (
+                            $params.UseQuotes -eq 'Always' -or
+                            (
+                                $params.UseQuotes -eq 'AsNeeded' -and
+                                (
+                                    $key -like "*$($params.Delimiter)*" -or
+                                    $key -like '*"*'
+                                )
+                            )
+                        ) {
+                            $key = "`"$($key -replace '`"', '`"`"')`""
+                        }
+
+                        if (
+                            $params.UseQuotes -eq 'Always' -or
+                            (
+                                $params.UseQuotes -eq 'AsNeeded' -and
+                                (
+                                    $val -like "*$($params.Delimiter)*" -or
+                                    $val -like '*"*'
+                                )
+                            )
+                        ) {
+                            $val = "`"$($val -replace '`"', '`"`"')`""
+                        }
+
+                        $streamWriter.WriteLine("$key$($params.Delimiter)$val$missingColumnsString")
+                    }
+                }
+            }
         }
         finally {
             $streamWriter.Close()
         }
 
         $uri = [System.Uri] $StorageUri
-        $sasToken = $uri.Query.TrimStart('?')
-        $hostParts = $uri.Host.Split('.')
+        $sasToken = if ($uri.Query) { $uri.Query.TrimStart('?') } else { $null }
+        $hostParts = if ($uri.Host) { $uri.Host.Split('.') } else { throw 'Invalid storage URI' }
         $storageAccountName = $hostParts[0]
         $storageType = $hostParts[1]
-        $pathParts = $uri.AbsolutePath.Split('/')
+        $pathParts = if ($uri.AbsolutePath) { $uri.AbsolutePath.Split('/') } else { throw 'Invalid storage URI' }
         $containerName = $pathParts[1]
         $filePath = $pathParts[2..($pathParts.Length - 1)] -join '/'
         if ([string]::IsNullOrEmpty($filePath)) { $filePath = [System.IO.Path]::GetFileNameWithoutExtension($tempFile) }
@@ -187,6 +287,62 @@ try {
     else {
         Write-Output $(
             $InputObject | Convert-PropertyValues | ConvertTo-Csv @params
+
+            if (
+                (
+                    $Metadata -is [hashtable] -and
+                    $Metadata.GetEnumerator().Count -gt 0
+                ) -or
+                (
+                    $Metadata -is [pscustomobject] -and
+                    $Metadata.PSObject.Properties.Count -gt 0
+                )
+            ) {
+                Write-Output ''
+                $missingColumnsString = $params.Delimiter * ($InputObject[0].Keys.Count - 2)
+                $Metadata | & { process { if ($_ -is [hashtable]) { $_.GetEnumerator() } else { $_.PSObject.properties } } } | Convert-PropertyValues | & { process {
+                        $key = "# $($_.Name)"
+                        $val = $_.Value | & {
+                            process {
+                                if ($_ -is [array]) {
+                                    $_ -join ', '
+                                }
+                                else {
+                                    $_
+                                }
+                            }
+                        }
+
+                        if (
+                            $params.UseQuotes -eq 'Always' -or
+                            (
+                                $params.UseQuotes -eq 'AsNeeded' -and
+                                (
+                                    $key -like "*$($params.Delimiter)*" -or
+                                    $key -like '*"*'
+                                )
+                            )
+                        ) {
+                            $key = "`"$($key -replace '`"', '`"`"')`""
+                        }
+
+                        if (
+                            $params.UseQuotes -eq 'Always' -or
+                            (
+                                $params.UseQuotes -eq 'AsNeeded' -and
+                                (
+                                    $val -like "*$($params.Delimiter)*" -or
+                                    $val -like '*"*'
+                                )
+                            )
+                        ) {
+                            $val = "`"$($val -replace '`"', '`"`"')`""
+                        }
+
+                        Write-Output "$key$($params.Delimiter)$val$missingColumnsString"
+                    }
+                }
+            }
         )
     }
 }
@@ -198,4 +354,7 @@ finally {
 }
 
 Get-Variable | Where-Object { $StartupVariables -notcontains $_.Name } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
-# Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
+if (-Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name)) {
+    $Global:hasRunBefore[(Get-Item $PSCommandPath).Name] = $true
+    Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
+}
