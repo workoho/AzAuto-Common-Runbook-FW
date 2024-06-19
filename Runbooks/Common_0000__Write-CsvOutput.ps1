@@ -38,8 +38,12 @@
     Specifies the value to be used for boolean false values. Default is '0'.
 
 .PARAMETER Metadata
-    Specifies the metadata to be added to the CSV file. The metadata is added as a comment at the end of the CSV file.
-    The metadata should be an array of hash tables with key-value pairs. The keys are used as column headers and the values as column values.
+    Specifies the metadata to append to the CSV file. The metadata is represented as key-value pairs, with keys prefixed by '#' in the first column, and corresponding values in the second column.
+    This is useful for adding additional information to the CSV file, like column descriptions or data source information.
+
+    The metadata can be provided as either a hashtable or a custom object:
+    - Hashtable: The keys are used as column names and the corresponding values as column values.
+    - Custom Object: The properties of the object are used as column names and their values as column values.
 
 .PARAMETER StorageUri
     Specifies the URI of the storage where the CSV file should be uploaded.
