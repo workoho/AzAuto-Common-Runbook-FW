@@ -308,7 +308,7 @@ try {
                     $Metadata.PSObject.Properties.Count -gt 0
                 )
             ) {
-                Write-Output ''
+                ''
                 $missingColumnsString = $params.Delimiter * ($InputObject[0].Keys.Count - 2)
                 $Metadata | & { process { if ($_ -is [hashtable]) { $_.GetEnumerator() } else { $_.PSObject.properties } } } | Convert-PropertyValues | & { process {
                         $key = "# $($_.Name)"
@@ -351,7 +351,7 @@ try {
                             $val = "`"$($val -replace '`"', '`"`"')`""
                         }
 
-                        Write-Output "$key$($params.Delimiter)$val$missingColumnsString"
+                        "$key$($params.Delimiter)$val$missingColumnsString"
                     }
                 }
             }
