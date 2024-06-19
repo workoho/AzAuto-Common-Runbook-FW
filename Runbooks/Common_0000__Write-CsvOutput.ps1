@@ -104,17 +104,21 @@ if (-Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name)) {
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
 $params = if ($ConvertToParam) { $ConvertToParam.Clone() } else { @{} }
-if ($null -eq $params.NoTypeInformation -and ($null -eq $params.IncludeTypeInformation -or $params.IncludeTypeInformation -eq $false)) {
+if ([string]::IsNullOrEmpty($params.NoTypeInformation) -and ([string]::IsNullOrEmpty($params.IncludeTypeInformation) -or $params.IncludeTypeInformation -eq $false)) {
     $params.Remove('IncludeTypeInformation')
     $params.NoTypeInformation = $true # use NoTypeInformation for PowerShell 5.1 backwards compatibility
 }
-if ($null -eq $params.UseQuotes) {
+if ([string]::IsNullOrEmpty($params.UseQuotes)) {
     $params.UseQuotes = 'Always'
 }
-if ($null -eq $params.Delimiter) {
+if ($params.UseCulture -eq $true) {
+    $params.Delimiter = [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ListSeparator
+    $params.Remove('UseCulture')
+}
+elseif ([string]::IsNullOrEmpty($params.Delimiter)) {
     $params.Delimiter = ','
 }
-if ($null -eq $params.ErrorAction) {
+if ([string]::IsNullOrEmpty($params.ErrorAction)) {
     $params.ErrorAction = 'Stop'
 }
 
