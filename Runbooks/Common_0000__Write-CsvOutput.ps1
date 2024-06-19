@@ -205,7 +205,8 @@ try {
                                 $params.UseQuotes -eq 'AsNeeded' -and
                                 (
                                     $key -like "*$($params.Delimiter)*" -or
-                                    $key -like '*"*'
+                                    $key -like '*"*' -or
+                                    $key -match "`n|`r"
                                 )
                             )
                         ) {
@@ -218,7 +219,8 @@ try {
                                 $params.UseQuotes -eq 'AsNeeded' -and
                                 (
                                     $val -like "*$($params.Delimiter)*" -or
-                                    $val -like '*"*'
+                                    $val -like '*"*' -or
+                                    $val -match "`n|`r"
                                 )
                             )
                         ) {
