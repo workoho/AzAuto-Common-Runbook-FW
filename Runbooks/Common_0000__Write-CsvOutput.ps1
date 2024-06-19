@@ -74,7 +74,7 @@
     This example converts the $data object to CSV, and writes it to the output stream.
 
 .EXAMPLE
-    PS> Common_0000__Write-CsvOutput.ps1 -InputObject $data -StorageUri 'https://mystorageaccount.blob.core.windows.net/mycontainer/myblob.csv'
+    PS> Common_0000__Write-CsvOutput.ps1 -InputObject $data -StorageUri 'https://mystorageaccount.blob.core.windows.net/mycontainer/myblob.csv?sastoken'
     This example converts the $data object to CSV, and uploads it to the specified blob storage.
 
 .EXAMPLE
