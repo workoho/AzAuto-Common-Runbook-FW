@@ -38,10 +38,10 @@
     Specifies the value to be used for boolean false values. Default is '0'.
 
 .PARAMETER Metadata
-    Specifies the metadata to append to the CSV file. The metadata is represented as key-value pairs, with keys prefixed by '#' in the first column, and corresponding values in the second column.
-    This is useful for adding additional information to the CSV file, like column descriptions or data source information.
+    Specifies the metadata to append to the CSV file. The metadata is represented as key-value pairs, where keys (prefixed by '#') are placed in the first column, and their corresponding values in the second column.
+    This is useful for adding additional information to the CSV file, such as column descriptions or data source information.
 
-    The metadata is provided as hashtable: The keys are used as column names and the corresponding values as column values.
+    The metadata should be provided as a PSCustomObject. The properties of the PSCustomObject are used as column names in the CSV, and the corresponding values are used as the column values.
 
 .PARAMETER StorageUri
     Specifies the URI of the storage where the CSV file should be uploaded.
@@ -87,7 +87,7 @@
 Param(
     [Parameter(Mandatory = $true)]
     $InputObject,
-    $Metadata,
+    [pscustomobject] $Metadata,
 
     [hashtable] $ConvertToParam,
     [string] $BooleanTrueValue = '1',
@@ -168,14 +168,14 @@ try {
             $InputObject | Convert-PropertyValues | ConvertTo-Csv @params | & { process { $streamWriter.WriteLine($_) } }
 
             if (
-                ($Metadata -is [hashtable] -or $Metadata -is [ordered]) -and
-                $Metadata.GetEnumerator().Count -gt 0
+                $null -ne $Metadata -and
+                ($Metadata | Get-Member -MemberType NoteProperty | Measure-Object).Count -gt 0
             ) {
                 $streamWriter.Close()
                 $missingColumnsString = $params.Delimiter * (Get-Content $tempFile -TotalCount 1 | & { process { $_ | ConvertFrom-Csv -Header $_.Split($params.Delimiter) -Delimiter $params.Delimiter } } | Get-Member -MemberType NoteProperty | Measure-Object).Count
                 $streamWriter = New-Object System.IO.StreamWriter($tempFile, $true)
                 $streamWriter.WriteLine('')
-                $Metadata | & { process { if ($_ -is [hashtable] -or $_ -is [ordered]) { $_.GetEnumerator() } else { $_ } } } | & { process {
+                $Metadata.PSObject.properties | & { process {
                         $key = "# $($_.Name)"
                         $val = $_.Value | & {
                             process {
@@ -230,7 +230,7 @@ try {
                             $val = "`"$($val -replace '`"', '`"`"')`""
                         }
 
-                        "$key$($params.Delimiter)$val$missingColumnsString"
+                        $streamWriter.WriteLine("$key$($params.Delimiter)$val$missingColumnsString")
                     }
                 }
             }
@@ -303,12 +303,12 @@ try {
             $csv
 
             if (
-                ($Metadata -is [hashtable] -or $Metadata -is [ordered]) -and
-                $Metadata.GetEnumerator().Count -gt 0
+                $null -ne $Metadata -and
+                ($Metadata | Get-Member -MemberType NoteProperty | Measure-Object).Count -gt 0
             ) {
                 ''
                 $missingColumnsString = $params.Delimiter * ($csv | Select-Object -First 1 | & { process { $_ | ConvertFrom-Csv -Header $_.Split($params.Delimiter) -Delimiter $params.Delimiter } } | Get-Member -MemberType NoteProperty | Measure-Object).Count
-                $Metadata | & { process { if ($_ -is [hashtable] -or $_ -is [ordered]) { $_.GetEnumerator() } else { $_ } } } | & { process {
+                $Metadata.PSObject.properties | & { process {
                         $key = "# $($_.Name)"
                         $val = $_.Value | & {
                             process {
