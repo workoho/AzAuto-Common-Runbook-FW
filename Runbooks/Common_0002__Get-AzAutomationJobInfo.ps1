@@ -77,8 +77,8 @@ if (
     }
     $tags = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.tags
 
-    $return.Runbook.ScriptVersion = $tags['Script.Version']
-    $return.Runbook.ScriptGuid = $tags['Script.Guid']
+    $return.Runbook.ScriptVersion = $tags.'Script.Version'
+    $return.Runbook.ScriptGuid = $tags.'Script.Guid'
 }
 else {
     $return.CreationTime = [datetime]::UtcNow
