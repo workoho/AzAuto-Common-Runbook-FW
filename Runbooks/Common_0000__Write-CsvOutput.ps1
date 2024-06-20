@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.2.0
 .GUID 7086a21d-f021-4f05-99a7-ec2a6de6f749
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-06-19)
-    - Add Metadata, FileEncoding, and FileNewLine parameters.
+    Version 1.2.0 (2024-06-20)
+    - Define Metadata to be a hashtable only
 #>
 
 <#
@@ -41,9 +41,7 @@
     Specifies the metadata to append to the CSV file. The metadata is represented as key-value pairs, with keys prefixed by '#' in the first column, and corresponding values in the second column.
     This is useful for adding additional information to the CSV file, like column descriptions or data source information.
 
-    The metadata can be provided as either a hashtable or a custom object:
-    - Hashtable: The keys are used as column names and the corresponding values as column values.
-    - Custom Object: The properties of the object are used as column names and their values as column values.
+    The metadata is provided as hashtable: The keys are used as column names and the corresponding values as column values.
 
 .PARAMETER StorageUri
     Specifies the URI of the storage where the CSV file should be uploaded.
@@ -173,28 +171,31 @@ try {
             $InputObject | Convert-PropertyValues | ConvertTo-Csv @params | & { process { $streamWriter.WriteLine($_) } }
 
             if (
-                (
-                    $Metadata -is [hashtable] -and
-                    $Metadata.GetEnumerator().Count -gt 0
-                ) -or
-                (
-                    $Metadata -is [pscustomobject] -and
-                    $Metadata.PSObject.Properties.Count -gt 0
-                )
+                ($Metadata -is [hashtable] -or $Metadata -is [ordered]) -and
+                $Metadata.GetEnumerator().Count -gt 0
             ) {
                 $streamWriter.Close()
                 $missingColumnsString = $params.Delimiter * (Get-Content $tempFile -TotalCount 1 | & { process { $_ | ConvertFrom-Csv -Header $_.Split($params.Delimiter) -Delimiter $params.Delimiter } } | Get-Member -MemberType NoteProperty | Measure-Object).Count
                 $streamWriter = New-Object System.IO.StreamWriter($tempFile, $true)
                 $streamWriter.WriteLine('')
-                $Metadata | & { process { if ($_ -is [hashtable]) { $_.GetEnumerator() } else { $_.PSObject.properties } } } | Convert-PropertyValues | & { process {
+                $Metadata | & { process { if ($_ -is [hashtable] -or $_ -is [ordered]) { $_.GetEnumerator() } else { $_ } } } | & { process {
                         $key = "# $($_.Name)"
                         $val = $_.Value | & {
                             process {
-                                if ($_ -is [array]) {
+                                if ($_ -is [string]) {
+                                    $_
+                                }
+                                elseif ($_ -is [array]) {
                                     $_ -join ', '
                                 }
+                                elseif ($_ -is [DateTime]) {
+                                    [DateTime]::Parse($_).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+                                }
+                                elseif ($_.PSObject.Methods.Name -contains 'ToString') {
+                                    $_.ToString()
+                                }
                                 else {
-                                    $_
+                                    return
                                 }
                             }
                         }
@@ -214,20 +215,23 @@ try {
                         }
 
                         if (
-                            $params.UseQuotes -eq 'Always' -or
+                            -not [string]::IsNullOrEmpty($val) -and
                             (
-                                $params.UseQuotes -eq 'AsNeeded' -and
+                                $params.UseQuotes -eq 'Always' -or
                                 (
-                                    $val -like "*$($params.Delimiter)*" -or
-                                    $val -like '*"*' -or
-                                    $val -match "`n|`r"
+                                    $params.UseQuotes -eq 'AsNeeded' -and
+                                    (
+                                        $val -like "*$($params.Delimiter)*" -or
+                                        $val -like '*"*' -or
+                                        $val -match "`n|`r"
+                                    )
                                 )
                             )
                         ) {
                             $val = "`"$($val -replace '`"', '`"`"')`""
                         }
 
-                        $streamWriter.WriteLine("$key$($params.Delimiter)$val$missingColumnsString")
+                        "$key$($params.Delimiter)$val$missingColumnsString"
                     }
                 }
             }
@@ -296,29 +300,33 @@ try {
     }
     else {
         Write-Output $(
-            $InputObject | Convert-PropertyValues | ConvertTo-Csv @params
+            $csv = $InputObject | Convert-PropertyValues | ConvertTo-Csv @params
+            $csv
 
             if (
-                (
-                    $Metadata -is [hashtable] -and
-                    $Metadata.GetEnumerator().Count -gt 0
-                ) -or
-                (
-                    $Metadata -is [pscustomobject] -and
-                    $Metadata.PSObject.Properties.Count -gt 0
-                )
+                ($Metadata -is [hashtable] -or $Metadata -is [ordered]) -and
+                $Metadata.GetEnumerator().Count -gt 0
             ) {
                 ''
-                $missingColumnsString = $params.Delimiter * ($InputObject[0].Keys.Count - 2)
-                $Metadata | & { process { if ($_ -is [hashtable]) { $_.GetEnumerator() } else { $_.PSObject.properties } } } | Convert-PropertyValues | & { process {
+                $missingColumnsString = $params.Delimiter * ($csv | Select-Object -First 1 | & { process { $_ | ConvertFrom-Csv -Header $_.Split($params.Delimiter) -Delimiter $params.Delimiter } } | Get-Member -MemberType NoteProperty | Measure-Object).Count
+                $Metadata | & { process { if ($_ -is [hashtable] -or $_ -is [ordered]) { $_.GetEnumerator() } else { $_ } } } | & { process {
                         $key = "# $($_.Name)"
                         $val = $_.Value | & {
                             process {
-                                if ($_ -is [array]) {
+                                if ($_ -is [string]) {
+                                    $_
+                                }
+                                elseif ($_ -is [array]) {
                                     $_ -join ', '
                                 }
+                                elseif ($_ -is [DateTime]) {
+                                    [DateTime]::Parse($_).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+                                }
+                                elseif ($_.PSObject.Methods.Name -contains 'ToString') {
+                                    $_.ToString()
+                                }
                                 else {
-                                    $_
+                                    return
                                 }
                             }
                         }
@@ -338,13 +346,16 @@ try {
                         }
 
                         if (
-                            $params.UseQuotes -eq 'Always' -or
+                            -not [string]::IsNullOrEmpty($val) -and
                             (
-                                $params.UseQuotes -eq 'AsNeeded' -and
+                                $params.UseQuotes -eq 'Always' -or
                                 (
-                                    $val -like "*$($params.Delimiter)*" -or
-                                    $val -like '*"*' -or
-                                    $val -match "`n|`r"
+                                    $params.UseQuotes -eq 'AsNeeded' -and
+                                    (
+                                        $val -like "*$($params.Delimiter)*" -or
+                                        $val -like '*"*' -or
+                                        $val -match "`n|`r"
+                                    )
                                 )
                             )
                         ) {

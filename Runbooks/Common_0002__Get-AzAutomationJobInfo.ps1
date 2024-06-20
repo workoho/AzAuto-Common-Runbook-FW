@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.1
+.VERSION 1.3.0
 .GUID e392dfb1-8ca4-4f5c-b073-c453ce004891
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,9 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.1 (2024-06-17)
-    - Minor improvements.
-#>
+    Version 1.3.0 (2024-06-20)
+    - Refactoring StartedBy as hashtable
 
 <#
 .SYNOPSIS
@@ -29,7 +28,9 @@
 
 .PARAMETER StartedBy
     If set to $true, the script will wait for the job activity log to appear and retrieve the user who started the job.
-    This is useful when you want to know who started the job, for example to send an email to the user.
+    This is useful when you want to know who initiated the job, for example, to send an email notification to the user.
+    The script retrieves the user's ID, type, and other relevant details depending on whether the user is a service principal or a regular user.
+    Note that the script may take some time to retrieve this information as it waits for the job activity log to be available.
 
 .NOTES
     This script is intended to be used as a child runbook in other runbooks and can not be run directly in Azure Automation for security reasons.
@@ -69,13 +70,19 @@ if (
             $TimeoutLoop++
 
             $params = @{
-                Path   = "/subscriptions/$((Get-AzContext).Subscription.Id)/providers/Microsoft.Insights/EventTypes/management/values?`$select=Authorization,Caller&`$filter=eventTimestamp ge $([System.Web.HttpUtility]::UrlEncode($StartTime.ToString('o'))) and resourceGroupName eq '$($env:AZURE_AUTOMATION_ResourceGroupName)'&api-version=2015-04-01"
+                Path = "/subscriptions/$((Get-AzContext).Subscription.Id)/providers/Microsoft.Insights/EventTypes/management/values?`$select=Authorization,Caller&`$filter=eventTimestamp ge $([System.Web.HttpUtility]::UrlEncode($StartTime.ToString('o'))) and resourceGroupName eq '$($env:AZURE_AUTOMATION_ResourceGroupName)'&api-version=2015-04-01"
             }
             $Log = (./Common_0001__Invoke-AzRestMethod.ps1 $params).Content.value | Where-Object { $_.authorization.action -eq 'Microsoft.Automation/automationAccounts/jobs/write' -and $_.authorization.scope -like "*$($PSPrivateMetadata.JobId)" }
 
             if ($Log) {
                 Write-Verbose "[COMMON]: - Found caller $($Log.Caller) for job ID $($PSPrivateMetadata.JobId) ..."
-                $return.StartedBy = $Log.Caller
+                $return.StartedBy = @{
+                    id = $Log.Caller
+                }
+                Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($return.StartedBy.id)" -Headers @{ Authorization = "Bearer $((Get-AzAccessToken -ResourceUrl 'https://graph.microsoft.com').Token)" } -ErrorAction SilentlyContinue | ForEach-Object { $return.StartedBy.type = $_.servicePrincipalType; $return.StartedBy.appId = $_.appId; $return.StartedBy.displayName = $_.displayName }
+                if (-not $return.StartedBy.type) {
+                    Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/users/$($return.StartedBy.id)" -Headers @{ Authorization = "Bearer $((Get-AzAccessToken -ResourceUrl 'https://graph.microsoft.com').Token)" } -ErrorAction SilentlyContinue | ForEach-Object { $return.StartedBy.type = 'User'; $return.StartedBy.userPrincipalName = $_.userPrincipalName; $return.StartedBy.displayName = $_.displayName }
+                }
             }
 
             $Log = $null
@@ -104,9 +111,27 @@ if (
 else {
     $return.CreationTime = [datetime]::UtcNow
     $return.StartTime = $return.CreationTime
-    $return.Runbook = @{
-        Name = (Get-Item $MyInvocation.MyCommand).BaseName
+    if ($StartedBy) {
+        $return.StartedBy = @{
+            id                = (Get-AzContext).Account.ExtendedProperties.HomeAccountId.Split('.')[0]
+            type              = (Get-AzContext).Account.type
+            userPrincipalName = (Get-AzContext).Account.Id
+        }
     }
+    $return.Runbook = @{
+        Name = (Get-Item $MyInvocation.PSCommandPath).BaseName
+    }
+}
+
+try {
+    $RunbookInfo = Test-ScriptFileInfo $($return.Runbook.Name + '.ps1') -ErrorAction Stop | Select-Object -Property Version, Guid
+}
+catch {
+    # Ignore errors when the runbook file is not found
+}
+finally {
+    $return.Runbook.Version = $RunbookInfo.Version
+    $return.Runbook.Guid = $RunbookInfo.Guid
 }
 
 Get-Variable | Where-Object { $StartupVariables -notcontains @($_.Name, 'return') } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
