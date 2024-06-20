@@ -110,9 +110,6 @@ if ([string]::IsNullOrEmpty($params.NoTypeInformation) -and ([string]::IsNullOrE
     $params.Remove('IncludeTypeInformation')
     $params.NoTypeInformation = $true # use NoTypeInformation for PowerShell 5.1 backwards compatibility
 }
-if ([string]::IsNullOrEmpty($params.UseQuotes)) {
-    $params.UseQuotes = 'Always'
-}
 if ($params.UseCulture -eq $true) {
     $params.Delimiter = [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ListSeparator
     $params.Remove('UseCulture')
@@ -201,6 +198,7 @@ try {
                         }
 
                         if (
+                            $null -eq $params.UseQuotes -or
                             $params.UseQuotes -eq 'Always' -or
                             (
                                 $params.UseQuotes -eq 'AsNeeded' -and
@@ -217,6 +215,7 @@ try {
                         if (
                             -not [string]::IsNullOrEmpty($val) -and
                             (
+                                $null -eq $params.UseQuotes -or
                                 $params.UseQuotes -eq 'Always' -or
                                 (
                                     $params.UseQuotes -eq 'AsNeeded' -and
@@ -332,6 +331,7 @@ try {
                         }
 
                         if (
+                            $null -eq $params.UseQuotes -or
                             $params.UseQuotes -eq 'Always' -or
                             (
                                 $params.UseQuotes -eq 'AsNeeded' -and
@@ -348,6 +348,7 @@ try {
                         if (
                             -not [string]::IsNullOrEmpty($val) -and
                             (
+                                $null -eq $params.UseQuotes -or
                                 $params.UseQuotes -eq 'Always' -or
                                 (
                                     $params.UseQuotes -eq 'AsNeeded' -and
