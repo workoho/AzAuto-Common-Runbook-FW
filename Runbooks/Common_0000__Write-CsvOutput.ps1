@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.0
+.VERSION 1.3.0
 .GUID 7086a21d-f021-4f05-99a7-ec2a6de6f749
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,9 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.0 (2024-06-20)
-    - Define Metadata to be a hashtable only
+    Version 1.3.0 (2024-06-23)
+    - Conversion of hashtable objects to PSCustomObject before converting to CSV
+    - Add NullValue parameter to specify the value to be used for null values
 #>
 
 <#
@@ -36,6 +37,11 @@
 
 .PARAMETER BooleanFalseValue
     Specifies the value to be used for boolean false values. Default is '0'.
+
+.PARAMETER NullValue
+    Specifies the value to be used for null values. Default is a $null value, which leaves the field empty.
+    Note that if you want to have an empty string instead of a null value, you can set NullValue to an empty string ('').
+    You may also set NullValue to any other value you want to use for null values, like 'NULL' or 'N/A'.
 
 .PARAMETER Metadata
     Specifies the metadata to append to the CSV file. The metadata is represented as key-value pairs, where keys (prefixed by '#') are placed in the first column, and their corresponding values in the second column.
@@ -92,6 +98,7 @@ Param(
     [hashtable] $ConvertToParam,
     [string] $BooleanTrueValue = '1',
     [string] $BooleanFalseValue = '0',
+    [string] $NullValue,
     [string] $StorageUri,
     [string] $FileEncoding = 'utf8BOM',
     [string] $FileNewLine = "`r`n"
@@ -121,27 +128,183 @@ if ([string]::IsNullOrEmpty($params.ErrorAction)) {
     $params.ErrorAction = 'Stop'
 }
 
-function Convert-PropertyValues {
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [PSObject] $Obj
+function ConvertTo-CsvFriendlyObject {
+    [CmdletBinding()]
+    param (
+        [Parameter(ValueFromPipeline = $true, Mandatory = $true)]
+        [psobject]$InputObject,
+        [string]$TrueString = "True",
+        [string]$FalseString = "False",
+        [string]$ArraySeparator = ", ", # Default is ", " for better readability
+        [AllowNull()][string]$NullString = $null, # Default is $null to leave fields empty
+        [int]$MaxDepth = 2  # Limit recursion depth to 2
     )
 
     process {
-        foreach ($property in $Obj.PSObject.Properties) {
-            if ($property.IsSettable) {
-                if ($property.Value -is [DateTime]) {
-                    $property.Value = [DateTime]::Parse($property.Value).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+        if ($null -eq $InputObject) {
+            Write-Debug "Skipping null input object"
+            return
+        }
+
+        function Convert-Value {
+            param (
+                [object]$Value,
+                [int]$CurrentDepth
+            )
+
+            if ($CurrentDepth -gt $MaxDepth) {
+                if ($Value -is [System.Collections.IEnumerable] -or $Value -is [System.Collections.IDictionary]) {
+                    Write-Debug "Converting complex nested structure to JSON"
+                    return $Value | ConvertTo-Json -Compress
                 }
-                elseif ($property.Value -is [bool]) {
-                    $property.Value = if ($property.Value) { $BooleanTrueValue } else { $BooleanFalseValue }
-                }
-                elseif ($property.Value -is [array]) {
-                    $property.Value = $property.Value -join ', '
+                return $Value
+            }
+
+            if ($Value -is [DateTime]) {
+                Write-Debug "Converting DateTime value"
+                return $Value.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            }
+            elseif ($Value -is [bool]) {
+                Write-Debug "Converting Boolean value"
+                return $(if ($Value) { $TrueString } else { $FalseString })
+            }
+            elseif ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
+                Write-Debug "Converting Array value"
+                return Process-Array -Array $Value -CurrentDepth ($CurrentDepth + 1)
+            }
+            elseif ($Value -is [System.Collections.Hashtable]) {
+                Write-Debug "Converting Hashtable value"
+                Process-Hashtable -Hashtable $Value -CurrentDepth ($CurrentDepth + 1)
+                return [PSCustomObject]$Value
+            }
+            elseif ($null -eq $Value) {
+                if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('NullString')) {
+                    Write-Debug "Converting Null value"
+                    return $NullString
                 }
             }
+            else {
+                Write-Debug "Converting value to string"
+                try {
+                    return $Value.ToString()
+                }
+                catch {
+                    Write-Debug "Unable to convert value to string"
+                    return $Value.GetType().Name
+                }
+            }
+            return $Value
         }
-        return $Obj
+
+        function Process-Hashtable {
+            param (
+                [hashtable]$Hashtable,
+                [int]$CurrentDepth
+            )
+
+            $keys = @($Hashtable.Keys)  # Create a copy of the keys to avoid modification issues
+            foreach ($key in $keys) {
+                $Hashtable[$key] = Convert-Value -Value $Hashtable[$key] -CurrentDepth $CurrentDepth
+            }
+        }
+
+        function Process-Array {
+            param (
+                [array]$Array,
+                [int]$CurrentDepth
+            )
+
+            $processedArray = [System.Collections.ArrayList]::new()
+            foreach ($item in $Array) {
+                $processedArray.Add((Convert-Value -Value $item -CurrentDepth $CurrentDepth))
+            }
+
+            # Escape occurrences of the trimmed ArraySeparator in array elements and join
+            return ($processedArray.ForEach({
+                        if ($_ -is [string]) {
+                            $_.Replace($ArraySeparator.Trim(), "\" + $ArraySeparator.Trim())
+                        }
+                        else {
+                            $_
+                        }
+                    })) -join $ArraySeparator
+        }
+
+        function Process-Object {
+            param (
+                [PSCustomObject]$Obj,
+                [int]$CurrentDepth
+            )
+
+            if ($Obj -is [System.Collections.IDictionary]) {
+                Process-Hashtable -Hashtable $Obj -CurrentDepth $CurrentDepth
+                $Obj = [PSCustomObject]$Obj  # Convert hashtable to PSCustomObject
+            }
+            elseif ($Obj -is [PSObject]) {
+                $properties = @($Obj.PSObject.Properties)  # Create a copy of the properties to avoid modification issues
+                foreach ($property in $properties) {
+                    if ($property.IsSettable) {
+                        $Obj.$($property.Name) = Convert-Value -Value $property.Value -CurrentDepth $CurrentDepth
+                    }
+                }
+            }
+            elseif ($Obj -is [System.Collections.IEnumerable] -and -not ($Obj -is [string])) {
+                foreach ($item in $Obj) {
+                    Process-Object -Obj $item -CurrentDepth ($CurrentDepth + 1)
+                }
+            }
+            elseif ($Obj -is [System.Object]) {
+                $Obj = [PSCustomObject]$Obj
+            }
+
+            return $Obj
+        }
+
+        if ($InputObject -is [System.Collections.IEnumerable] -and -not ($InputObject -is [string])) {
+            $processedItems = [System.Collections.ArrayList]::new()
+            foreach ($item in $InputObject) {
+                if ($item -is [PSObject] -or $item -is [System.Collections.IDictionary]) {
+                    $processedItems.Add((Process-Object -Obj $item -CurrentDepth 0))
+                }
+                else {
+                    $processedItems.Add($item)
+                }
+            }
+            $InputObject = $processedItems
+        }
+        elseif ($InputObject -is [PSObject] -or $InputObject -is [System.Collections.IDictionary]) {
+            $InputObject = Process-Object -Obj $InputObject -CurrentDepth 0
+        }
+        elseif ($InputObject -is [System.Object]) {
+            $InputObject = [PSCustomObject]$InputObject
+        }
+
+        Write-Debug "Final processed input object type: $($InputObject.GetType().Name)"
+        Write-Debug "Final processed input object: $($InputObject | Out-String)"
+
+        $InputObject
+    }
+}
+
+function ConvertTo-PSCustomObject {
+    param (
+        [Parameter(ValueFromPipeline = $true, Mandatory = $true)]
+        [psobject]$InputObject
+    )
+
+    process {
+        if ($null -eq $InputObject) {
+            Write-Debug "Received a null input, returning null."
+            return $null
+        }
+        elseif ($InputObject -is [System.Collections.IDictionary]) {
+            Write-Debug "Converting Hashtable to PSCustomObject"
+            return [PSCustomObject]$InputObject
+        }
+        else {
+            Write-Debug "Returning input as is"
+            return $InputObject
+        }
     }
 }
 
@@ -165,7 +328,12 @@ try {
         $streamWriter = New-Object System.IO.StreamWriter($tempFile, $false, $encodingObject)
         $streamWriter.NewLine = $FileNewLine
         try {
-            $InputObject | Convert-PropertyValues | ConvertTo-Csv @params | & { process { $streamWriter.WriteLine($_) } }
+            if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('NullValue')) {
+                $InputObject | ConvertTo-PSCustomObject | ConvertTo-CsvFriendlyObject -TrueString $BooleanTrueValue -FalseString $BooleanFalseValue -NullString $NullValue | ConvertTo-Csv @params | & { process { $streamWriter.WriteLine($_) } }
+            }
+            else {
+                $InputObject | ConvertTo-PSCustomObject | ConvertTo-CsvFriendlyObject -TrueString $BooleanTrueValue -FalseString $BooleanFalseValue | ConvertTo-Csv @params | & { process { $streamWriter.WriteLine($_) } }
+            }
 
             if (
                 $null -ne $Metadata -and
@@ -299,7 +467,12 @@ try {
     }
     else {
         Write-Output $(
-            $csv = $InputObject | Convert-PropertyValues | ConvertTo-Csv @params
+            if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('NullValue')) {
+                $csv = $InputObject | ConvertTo-PSCustomObject | ConvertTo-CsvFriendlyObject -TrueString $BooleanTrueValue -FalseString $BooleanFalseValue -NullString $NullValue | ConvertTo-Csv @params
+            }
+            else {
+                $csv = $InputObject | ConvertTo-PSCustomObject | ConvertTo-CsvFriendlyObject -TrueString $BooleanTrueValue -FalseString $BooleanFalseValue | ConvertTo-Csv @params
+            }
             $csv
 
             if (
@@ -371,7 +544,7 @@ try {
     }
 }
 catch {
-    throw $_.Exception.Message
+    throw $_
 }
 finally {
     if ($tempFile) { Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue }

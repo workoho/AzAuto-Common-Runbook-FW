@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.1
+.VERSION 1.3.0
 .GUID 6d840940-e0fe-4de7-80ad-c6d3d495d695
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.2.1 (2024-06-17)
-    - Minor improvements.
+    Version 1.3.0 (2024-06-23)
+    - Add OutputType parameter to specify the output type of the result.
 #>
 
 <#
@@ -41,6 +41,9 @@
 .PARAMETER ExpandProperty
     The user properties to expand.
 
+.PARAMETER OutputType
+    The output type of the result. Default is Hashtable.
+
 .NOTES
     This script is intended to be used as a child runbook in other runbooks and can not be run directly in Azure Automation for security reasons.
 #>
@@ -50,7 +53,8 @@ Param(
     [Parameter(Mandatory = $true)]
     [array] $UserId,
     [array] $Property,
-    [array] $ExpandProperty
+    [array] $ExpandProperty,
+    [string] $OutputType
 )
 
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
@@ -125,6 +129,10 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
             ErrorAction = 'Stop'
             Verbose     = $VerbosePreference
             Debug       = $DebugPreference
+        }
+
+        if ($OutputType) {
+            $params.OutputType = $OutputType
         }
 
         $retryAfter = $null

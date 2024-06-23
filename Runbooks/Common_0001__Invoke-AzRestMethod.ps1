@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.1.1
 .GUID 0a0e5eb3-0470-427e-b264-9bab18f90617
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-06-17)
-    - Reduce verbose output.
+    Version 1.1.1 (2024-06-23)
+    - Enhanced JSON import
 #>
 
 <#
@@ -59,12 +59,18 @@ if ($Params.Payload -is [System.Collections.IEnumerable]) {
 do {
     try {
         $response = Az.Accounts\Invoke-AzRestMethod @Params
-        if (-not [string]::IsNullOrEmpty($response.Content) -and $response.Content -match '^\s*{') {
-            if ($PSVersionTable.PSEdition -eq 'Desktop') {
-                $response | Add-Member -NotePropertyName 'Content' -NotePropertyValue $($response.Content | ConvertFrom-Json) -Force
-            } else {
-                $response | Add-Member -NotePropertyName 'Content' -NotePropertyValue $($response.Content | ConvertFrom-Json -Depth 10) -Force
+        try {
+            if ($response.Content -is [string] -and $response.Content -match '^\s*[\[{]') {
+                if ($PSVersionTable.PSEdition -eq 'Desktop') {
+                    $response | Add-Member -NotePropertyName 'Content' -NotePropertyValue $($response.Content | ConvertFrom-Json) -Force
+                }
+                else {
+                    $response | Add-Member -NotePropertyName 'Content' -NotePropertyValue $($response.Content | ConvertFrom-Json -Depth 10) -Force
+                }
             }
+        }
+        catch {
+            Write-Error "Failed to parse response content as JSON: $($_.Exception.Message)"
         }
         $rateLimitExceeded = $false
     }
