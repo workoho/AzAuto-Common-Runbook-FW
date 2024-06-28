@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID a775a4d9-9195-4410-a2bf-b1eeaa0da599
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-06-28)
+    - Ignore Verbose, Debug, Confirm, and WhatIf preferences in New-Variable cmdlet
 #>
 
 <#
@@ -70,9 +70,13 @@ $Variable | & {
         }
 
         $params = @{
-            Name  = $_.mapToVariable
-            Scope = 2
-            Force = $true
+            Name   = $_.mapToVariable
+            Scope  = 2
+            Force  = $true
+            Verbose = $false
+            Debug = $false
+            Confirm = $false
+            WhatIf = $false
         }
 
         if (-Not $_.respectScriptParameter) { $params.Option = 'Constant' }
