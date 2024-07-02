@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.3.0
+.VERSION 1.5.0
 .GUID 7086a21d-f021-4f05-99a7-ec2a6de6f749
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,9 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.3.0 (2024-06-23)
-    - Conversion of hashtable objects to PSCustomObject before converting to CSV
-    - Add NullValue parameter to specify the value to be used for null values
+    Version 1.5.0 (2024-07-02)
+    - Improved handling to flatten nested objects in the input object
 #>
 
 <#
@@ -155,12 +154,20 @@ function ConvertTo-CsvFriendlyObject {
             if ($CurrentDepth -gt $MaxDepth) {
                 if ($Value -is [System.Collections.IEnumerable] -or $Value -is [System.Collections.IDictionary]) {
                     Write-Debug "Converting complex nested structure to JSON"
-                    return $Value | ConvertTo-Json -Compress
+                    return $Value | ConvertTo-Json -Compress -Depth 10
                 }
                 return $Value
             }
 
-            if ($Value -is [DateTime]) {
+            if ($Value -is [string]) {
+                Write-Debug "Using string value"
+                return $Value
+            }
+            elseif ($Value -is [PSObject]) {
+                Write-Debug "Not converting PSObject value"
+                return $Value.GetType().Name
+            }
+            elseif ($Value -is [DateTime]) {
                 Write-Debug "Converting DateTime value"
                 return $Value.ToString("yyyy-MM-ddTHH:mm:ssZ")
             }
@@ -244,7 +251,16 @@ function ConvertTo-CsvFriendlyObject {
                 $properties = @($Obj.PSObject.Properties)  # Create a copy of the properties to avoid modification issues
                 foreach ($property in $properties) {
                     if ($property.IsSettable) {
-                        $Obj.$($property.Name) = Convert-Value -Value $property.Value -CurrentDepth $CurrentDepth
+                        if ($property.Value -is [PSCustomObject]) {
+                            Write-Debug "Flattening nested object property '$($property.Name)'"
+                            foreach ($prop in $_.$($property.Name).PSObject.Properties) {
+                                $_ | Add-Member -MemberType NoteProperty -Name "$($property.Name)__$($prop.Name)" -Value (Convert-Value -Value $prop.Value -CurrentDepth $CurrentDepth) -Force
+                            }
+                            $Obj.PSObject.Properties.Remove($property.Name)
+                        }
+                        else {
+                            $Obj.$($property.Name) = Convert-Value -Value $property.Value -CurrentDepth $CurrentDepth
+                        }
                     }
                 }
             }
