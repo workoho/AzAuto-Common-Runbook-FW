@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.3.0
+.VERSION 1.3.1
 .GUID 05273e10-2a70-42aa-82d3-7881324beead
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.3.0 (2024-06-17)
-    - Reduce verbose output.
+    Version 1.3.1 (2024-07-05)
+    - Only implicitly connect to Azure when running in PowerShell Desktop Edition to avoid conflicts with Microsoft Graph modules in PowerShell 5.1
 #>
 
 <#
@@ -56,12 +56,15 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
 if (-Not $Global:hasRunBefore) { $Global:hasRunBefore = @{} }
 if (-Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name)) {
     Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
+
+    # It is important to run Connect-AzAccount first to avoid conflicts with the Microsoft Graph modules in PowerShell 5.1
+    # See https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/2148#issuecomment-1637535115
+    if ($PSVersionTable.PSEdition -eq 'Desktop') {
+        Write-Verbose 'Implicitly connecting to Azure first to avoid conflicts with Microsoft Graph modules in PowerShell 5.1 ...'
+        ./Common_0001__Connect-AzAccount.ps1
+    }
 }
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
-
-# It is important to run Connect-AzAccount first to avoid conflicts with the Microsoft Graph modules in PowerShell 5.1
-# See https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/2148#issuecomment-1637535115
-./Common_0001__Connect-AzAccount.ps1
 
 ./Common_0000__Import-Module.ps1 -Modules @(
     @{ Name = 'Microsoft.Graph.Authentication'; MinimumVersion = '2.0'; MaximumVersion = '2.65535' }
@@ -211,8 +214,14 @@ if (
         [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_ID', $Principal.Id)
         [Environment]::SetEnvironmentVariable('MG_PRINCIPAL_DISPLAYNAME', $Principal.DisplayName)
 
-        # As we now know our principal, we can read out all the details about the Automation Account and its managed identity
-        ./Common_0001__Connect-AzAccount.ps1 -SetEnvVarsAfterMgConnect $true
+        # Depending on the Connect-AzAccount above, we may now read out all
+        # the details about the Automation Account and its managed identity
+        if (
+            -Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name) -and
+            $PSVersionTable.PSEdition -eq 'Desktop'
+        ) {
+            ./Common_0001__Connect-AzAccount.ps1 -SetEnvVarsAfterMgConnect $true
+        }
     }
     catch {
         Write-Error $_.Exception.Message -ErrorAction Stop
