@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.0
+.VERSION 1.1.1
 .GUID ac0280b2-7ee2-46bf-8a32-c1277189fb60
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.0 (2024-06-06)
-    - Use Invoke-AzRestMethod instead of Invoke-AzRequest.
+    Version 1.1.1 (2024-07-05)
+    - Fix version conversion in Compare method
 #>
 
 <#
@@ -368,8 +368,8 @@ class AACRFSemanticVersion {
 
         try {
             # Convert the version strings to AACRFSemanticVersion objects
-            $semVer1 = if ($v1 -is [AACRFSemanticVersion]) { $v1 } elseif ($v1 -is [string]) { [AACRFSemanticVersion]::Parse($v1, $false, $false) } else { Write-Error "Invalid type for version 1: $($v1.GetType().FullName)" -ErrorAction Stop }
-            $semVer2 = if ($v2 -is [AACRFSemanticVersion]) { $v2 } elseif ($v2 -is [string]) { [AACRFSemanticVersion]::Parse($v2, $false, $false) } else { Write-Error "Invalid type for version 2: $($v2.GetType().FullName)" -ErrorAction Stop }
+            $semVer1 = if ($v1 -is [AACRFSemanticVersion]) { $v1 } elseif ($v1 -is [string]) { [AACRFSemanticVersion]::Parse($v1, $false, $false) } elseif ($v1 -is [System.Version]) { [AACRFSemanticVersion]::Parse($v1.ToString(), $false, $false) } else { Write-Error "Invalid type for version 1: $($v1.GetType().FullName)" -ErrorAction Stop }
+            $semVer2 = if ($v2 -is [AACRFSemanticVersion]) { $v2 } elseif ($v2 -is [string]) { [AACRFSemanticVersion]::Parse($v2, $false, $false) } elseif ($v2 -is [System.Version]) { [AACRFSemanticVersion]::Parse($v2.ToString(), $false, $false) } else { Write-Error "Invalid type for version 2: $($v2.GetType().FullName)" -ErrorAction Stop }
         }
         catch {
             Write-Error $_.Exception.Message -ErrorAction Stop
