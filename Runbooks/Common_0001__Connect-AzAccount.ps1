@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.5.1
+.VERSION 1.5.2
 .GUID 1dc765c0-4922-4142-a945-13206df25f13
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,9 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.5.1 (2024-07-02)
-    - Fixed ShouldProcess issue.
-    - Fixed issue when no subscription is found.
+    Version 1.5.2 (2024-07-05)
+    - Fix subcription ID validation.
 #>
 
 <#
@@ -192,6 +191,7 @@ if (Az.Accounts\Get-AzContext) {
             Set-EnvVarsAfterMgConnect
         }
         catch {
+            Disconnect-AzAccount -ErrorAction SilentlyContinue
             Throw $_
         }
     }
@@ -246,9 +246,11 @@ else {
         $Context = (Az.Accounts\Connect-AzAccount @params).context
 
         if ($null -eq $Context.Subscription) {
+            Disconnect-AzAccount -ErrorAction SilentlyContinue
             Throw '[COMMON]: - No subscription found, or you do not have access to any subscriptions.'
         }
-        if ($params.Subscription -and $Context.Subscription -ne $params.Subscription) {
+        if ($params.Subscription -and $params.Subscription -ne $Context.Subscription) {
+            Disconnect-AzAccount -ErrorAction SilentlyContinue
             Throw "[COMMON]: - Subscription '$($Context.Subscription)' does not match the specified subscription '$($params.Subscription)'."
         }
         $Context = Az.Accounts\Set-AzContext -SubscriptionName $Context.Subscription -DefaultProfile $Context
