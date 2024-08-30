@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.1.0
 .GUID 3126245a-3628-4290-b364-8d33c55b2a1c
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.1.0 (2024-08-30)
+    - Remove Directory.Write.Restricted checks, see MC866450
 #>
 
 <#
@@ -208,7 +208,6 @@ $config.Group.GetEnumerator() | Sort-Object -Property { $_.Value.DisplayName }, 
                                 'Group.ReadWrite.All'
                             )
                         }
-                        if ($configValue.AdministrativeUnit.IsMemberManagementRestricted) { $connectParams.Scopes += 'Directory.Write.Restricted' }
                         if (-not $ConfirmedMgPermissionPrivileged) { .\Common_0001__Connect-MgGraph.ps1 @connectParams; $ConfirmedMgPermissionPrivileged = $true }
                     }
                     catch {
