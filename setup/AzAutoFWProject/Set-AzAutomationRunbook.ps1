@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.1.1
+.VERSION 1.1.2
 .GUID ac0280b2-7ee2-46bf-8a32-c1277189fb60
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.1.1 (2024-07-05)
-    - Fix version conversion in Compare method
+    Version 1.1.2 (2024-11-04)
+    - Fix PowerShell 5.1 compatibility
 #>
 
 <#
@@ -511,7 +511,7 @@ try {
                     $RunbookName | ForEach-Object {
                         if (
                             (Split-Path $_ -Leaf) -eq $currentRunbookName -or
-                            (Split-Path $_ -LeafBase) -eq $currentRunbookBaseName
+                            ([System.IO.Path]::GetFileNameWithoutExtension($currentRunbookBaseName))
                         ) {
                             $matchFound = $true
                             return

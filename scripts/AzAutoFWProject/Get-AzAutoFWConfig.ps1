@@ -129,7 +129,7 @@ if ($isAzAutoFWProject) {
 }
 
 $localConfigName = ([System.Text.StringBuilder]::new()).Append(
-    (Split-Path -Path $configName -LeafBase)
+    [System.IO.Path]::GetFileNameWithoutExtension($configName)
 ).Append(
     '.local'
 ).Append(
