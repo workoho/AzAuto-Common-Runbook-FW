@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID 178d9772-9efb-4760-83c3-a40f58ff6d53
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,8 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-    Version 1.0.0 (2024-02-25)
-    - Initial release.
+    Version 1.0.1 (2024-11-04)
+    - Fix PowerShell 5.1 compatibility.
 #>
 
 <#
@@ -83,7 +83,7 @@ else {
 $configPath = Join-Path $configDir $configName
 $config = $null
 try {
-    if ((Split-Path -Path $configPath -Extension) -eq '.psd1') {
+    if ([System.IO.Path]::GetExtension((Split-Path -Path $configPath -Leaf)) -eq '.psd1') {
         $config = Import-PowerShellDataFile -Path $configPath -ErrorAction Stop | & {
             process {
                 $newConfig = @{}
@@ -106,7 +106,7 @@ try {
             }
         }
     }
-    elseif ((Split-Path -Path $configPath -Extension) -eq '.json') {
+    elseif ([System.IO.Path]::GetExtension((Split-Path -Path $configPath -Leaf)) -eq '.json') {
         $config = ConvertFrom-Json -Depth 3 -InputObject ((Get-Content -Path $configPath -Raw -ErrorAction Stop) -replace '/\*.*?\*/|//.*(?=[\r\n])')
     }
     else {
@@ -133,7 +133,7 @@ $localConfigName = ([System.Text.StringBuilder]::new()).Append(
 ).Append(
     '.local'
 ).Append(
-    (Split-Path -Path $configName -Extension)
+    ([System.IO.Path]::GetExtension((Split-Path -Path $configName -Leaf)))
 ).ToString()
 $localConfigPath = Join-Path $configDir $localConfigName
 try {
@@ -146,7 +146,7 @@ try {
     catch {
         # Ignore error
     }
-    if ((Split-Path -Path $localConfigPath -Extension) -eq '.psd1') {
+    if ([System.IO.Path]::GetExtension((Split-Path -Path $localConfigPath -Leaf)) -eq '.psd1') {
         Write-Verbose "Trying to read local .psd1 configuration file: $localConfigPath"
         $config.Local = Import-PowerShellDataFile -Path $localConfigPath -ErrorAction Stop | & {
             process {
@@ -170,7 +170,7 @@ try {
             }
         }
     }
-    elseif ((Split-Path -Path $localConfigPath -Extension) -eq '.json') {
+    elseif ([System.IO.Path]::GetExtension((Split-Path -Path $localConfigPath -Leaf)) -eq '.json') {
         Write-Verbose "Trying to read local .json configuration file: $localConfigPath"
         $config.Local = ConvertFrom-Json -Depth 3 -InputObject ((Get-Content -Path $localConfigPath -Raw -ErrorAction Stop) -replace '/\*.*?\*/|//.*(?=[\r\n])')
     }
