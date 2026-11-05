@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.0
+.VERSION 1.0.1
 .GUID a71f281b-4d20-4829-a814-18baff4dade7
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,6 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+    Version 1.0.1 (2026-11-06)
+    - Remove duplicate roles by their values, because PowerShell 5.1 does not group hashtables by key. A missing mandatory role can now stop the calling runbook there.
     Version 1.0.0 (2024-02-25)
     - Initial release.
 #>
@@ -150,7 +152,8 @@ foreach (
                 $_.Group | Select-Object -Unique
             }
             else {
-                $_.Group | Group-Object -Property DisplayName, TemplateId, DirectoryScopeId | ForEach-Object {
+                # Group-Object matches property names to hashtable keys from PowerShell 6 on only, so group by the values.
+                $_.Group | Group-Object -Property { '{0}|{1}|{2}' -f $_.DisplayName, $_.TemplateId, $_.DirectoryScopeId } | ForEach-Object {
                     $_.Group[0]
                 }
             }
