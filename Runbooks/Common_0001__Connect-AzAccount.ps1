@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.5.2
+.VERSION 1.5.3
 .GUID 1dc765c0-4922-4142-a945-13206df25f13
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,6 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+    Version 1.5.3 (2026-11-08)
+    - Keep the caller's variables when cleaning up. Before, the cleanup removed variables with the AllScope option, such as $HOME, for the whole session.
     Version 1.5.2 (2024-07-05)
     - Fix subcription ID validation.
 #>
@@ -264,7 +266,7 @@ else {
     }
 }
 
-Get-Variable | Where-Object { $StartupVariables -notcontains @($_.Name, 'return') } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
+Get-Variable | Where-Object { $StartupVariables -notcontains $_.Name -and $_.Name -ne 'return' } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
 if (-Not $Global:hasRunBefore.ContainsKey((Get-Item $PSCommandPath).Name)) {
     $Global:hasRunBefore[(Get-Item $PSCommandPath).Name] = $true
     Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"

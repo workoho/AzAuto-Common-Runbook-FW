@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.0.1
+.VERSION 1.0.2
 .GUID a71f281b-4d20-4829-a814-18baff4dade7
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,6 +12,9 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+    Version 1.0.2 (2026-11-08)
+    - Keep the caller's variables when cleaning up. Before, the cleanup removed variables with the AllScope option, such as $HOME, for the whole session.
+    - Return the active role assignments again. The cleanup removed them before, so the runbook returned nothing.
     Version 1.0.1 (2026-11-06)
     - Remove duplicate roles by their values, because PowerShell 5.1 does not group hashtables by key. A missing mandatory role can now stop the calling runbook there.
     Version 1.0.0 (2024-02-25)
@@ -201,6 +204,6 @@ if ($missingRoles.Count -gt 0) {
 }
 
 # Cleanup variables at the end of the script
-Get-Variable | Where-Object { $StartupVariables -notcontains @($_.Name, 'return') } | ForEach-Object { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false }
+Get-Variable | Where-Object { $StartupVariables -notcontains $_.Name -and $_.Name -ne 'return' } | ForEach-Object { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false }
 Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
 return $return

@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 0.0.3
+.VERSION 0.0.4
 .GUID b39dc20f-f5de-4f6b-958e-41762df89805
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,6 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+    Version 0.0.4 (2026-11-08)
+    - Keep the caller's variables when cleaning up. Before, the cleanup removed variables with the AllScope option, such as $HOME, for the whole session.
     Version 0.0.3 (2024-06-18)
     - Initial draft.
     - Requires re-write in conjunction with the Common_0003__Confirm-MgAppPermission.ps1 runbook.
@@ -139,6 +141,6 @@ catch {
     Throw $_
 }
 
-Get-Variable | Where-Object { $StartupVariables -notcontains @($_.Name, 'return') } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
+Get-Variable | Where-Object { $StartupVariables -notcontains $_.Name -and $_.Name -ne 'return' } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
 Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
 return $return

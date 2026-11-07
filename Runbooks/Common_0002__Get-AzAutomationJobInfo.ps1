@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.3.0
+.VERSION 1.3.1
 .GUID e392dfb1-8ca4-4f5c-b073-c453ce004891
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,6 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+    Version 1.3.1 (2026-11-08)
+    - Keep the caller's variables when cleaning up. Before, the cleanup removed variables with the AllScope option, such as $HOME, for the whole session.
     Version 1.3.0 (2024-06-20)
     - Remove StartedBy parameter because it is no longer possible to
       retrieve the user who started the job from Azure Activity Log due to
@@ -90,6 +92,6 @@ else {
     Test-ScriptFileInfo $($return.Runbook.Name + '.ps1') -ErrorAction Stop | Select-Object -Property Version, Guid | ForEach-Object { $return.Runbook.ScriptVersion = $_.Version; $return.Runbook.ScriptGuid = $_.Guid }
 }
 
-Get-Variable | Where-Object { $StartupVariables -notcontains @($_.Name, 'return') } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
+Get-Variable | Where-Object { $StartupVariables -notcontains $_.Name -and $_.Name -ne 'return' } | & { process { Remove-Variable -Scope 0 -Name $_.Name -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -Verbose:$false -Debug:$false -Confirm:$false -WhatIf:$false } }        # Delete variables created in this script to free up memory for tiny Azure Automation sandbox
 Write-Verbose "-----END of $((Get-Item $PSCommandPath).Name) ---"
 return $return
