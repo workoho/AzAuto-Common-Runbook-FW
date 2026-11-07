@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.2.0
+.VERSION 1.3.0
 .GUID 8dd55dbd-59a8-482e-b2ca-560259d791a4
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,6 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+    Version 1.3.0 (2026-11-07)
+    - Add the ThrowOnNotFound parameter, which treats a 404 as an error instead of returning nothing.
     Version 1.2.0 (2024-06-17)
     - Reduce verbose output.
 #>
@@ -28,6 +30,11 @@
 .PARAMETER Params
     The parameters to pass to the Invoke-MgGraphRequest cmdlet using splatting.
 
+.PARAMETER ThrowOnNotFound
+    Specifies whether a 404 response throws an error. Default is $false, which returns nothing on 404.
+    Set it for DELETE and PATCH requests, which also return nothing on success, so that a missing object is not taken as a successful change.
+    It covers the response of the request itself. For a $batch request, check the status of each response yourself.
+
 .OUTPUTS
     The response from the Microsoft Graph REST API request.
 
@@ -38,7 +45,9 @@
 [CmdletBinding()]
 Param(
     [Parameter(Mandatory = $true)]
-    [hashtable] $Params
+    [hashtable] $Params,
+
+    [Boolean] $ThrowOnNotFound = $false
 )
 
 if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks and must not be run directly.' -ErrorAction Stop; exit }
@@ -61,7 +70,7 @@ do {
         if ($null -eq $_.Exception.Response) {
             Throw "Network error: $($_.Exception.Message)"
         }
-        if ($_.Exception.Response.StatusCode -eq 404) {
+        if ($_.Exception.Response.StatusCode -eq 404 -and -not $ThrowOnNotFound) {
             $rateLimitExceeded = $false
         }
         elseif (
