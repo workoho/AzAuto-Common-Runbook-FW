@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 0.0.4
+.VERSION 0.1.0
 .GUID b39dc20f-f5de-4f6b-958e-41762df89805
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,11 +12,13 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+    Version 0.1.0 (2026-11-08)
+    - Read every page of the app role assignments and permission grants, and stop on a failed read instead of returning nothing.
+    - Return the object ID of each application as well.
     Version 0.0.4 (2026-11-08)
     - Keep the caller's variables when cleaning up. Before, the cleanup removed variables with the AllScope option, such as $HOME, for the whole session.
     Version 0.0.3 (2024-06-18)
     - Initial draft.
-    - Requires re-write in conjunction with the Common_0003__Confirm-MgAppPermission.ps1 runbook.
 #>
 
 <#
@@ -48,17 +50,23 @@ if (-Not $PSCommandPath) { Write-Error 'This runbook is used by other runbooks a
 Write-Verbose "---START of $((Get-Item $PSCommandPath).Name), $((Test-ScriptFileInfo $PSCommandPath | Select-Object -Property Version, Guid | & { process{$_.PSObject.Properties | & { process{$_.Name + ': ' + $_.Value} }} }) -join ', ') ---"
 $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember existing variables so we can cleanup ours at the end of the script
 
+# Reads every page of a collection. A failed read throws, so that it is not taken for an empty collection.
+function Get-MgCollection ([string] $Uri) {
+    $items = [System.Collections.ArrayList]::new()
+    while ($Uri) {
+        $page = Invoke-MgGraphRequest -Uri $Uri -ErrorAction Stop -Verbose:$false
+        if ($page.value) { [void] $items.AddRange(@($page.value)) }
+        $Uri = $page.'@odata.nextLink'
+    }
+    $items
+}
+
 try {
     $return = [System.Collections.ArrayList]::new()
 
-    if ((Get-MgContext).AuthType -eq 'Delegated') {
-        $AppRoleAssignments = @((Invoke-MgGraphRequest -Uri "/v1.0/users/$($env:MG_PRINCIPAL_ID)/appRoleAssignments" -ErrorAction SilentlyContinue -Verbose:$false).value)
-        $PermissionGrants = @((Invoke-MgGraphRequest -Uri "/v1.0/users/$($env:MG_PRINCIPAL_ID)/oauth2PermissionGrants" -ErrorAction SilentlyContinue -Verbose:$false).value)
-    }
-    else {
-        $AppRoleAssignments = @((Invoke-MgGraphRequest -Uri "/v1.0/servicePrincipals/$($env:MG_PRINCIPAL_ID)/appRoleAssignments" -ErrorAction SilentlyContinue -Verbose:$false).value)
-        $PermissionGrants = @((Invoke-MgGraphRequest -Uri "/v1.0/servicePrincipals/$($env:MG_PRINCIPAL_ID)/oauth2PermissionGrants" -ErrorAction SilentlyContinue -Verbose:$false).value)
-    }
+    $PrincipalPath = if ((Get-MgContext).AuthType -eq 'Delegated') { 'users' } else { 'servicePrincipals' }
+    $AppRoleAssignments = @(Get-MgCollection "/v1.0/$PrincipalPath/$($env:MG_PRINCIPAL_ID)/appRoleAssignments")
+    $PermissionGrants = @(Get-MgCollection "/v1.0/$PrincipalPath/$($env:MG_PRINCIPAL_ID)/oauth2PermissionGrants")
 
     if ($null -eq $App) {
         $Apps = [System.Collections.ArrayList]::new()
@@ -129,6 +137,7 @@ try {
 
         [void] $return.Add(
             @{
+                Id                     = $AppResource.id
                 AppId                  = $AppResource.appId
                 DisplayName            = $AppResource.displayName
                 AppRoles               = $AppRoles
