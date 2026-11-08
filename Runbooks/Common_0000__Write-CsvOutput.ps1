@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.5.0
+.VERSION 1.5.1
 .GUID 7086a21d-f021-4f05-99a7-ec2a6de6f749
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,6 +12,8 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+    Version 1.5.1 (2026-11-08)
+    - Build the bigendianutf32 encoding with UTF32Encoding, because Windows PowerShell 5.1 has no Encoding.BigEndianUTF32.
     Version 1.5.0 (2024-07-02)
     - Improved handling to flatten nested objects in the input object
 #>
@@ -331,7 +333,7 @@ try {
             "ansi" { [System.Text.Encoding]::Default }
             "ascii" { [System.Text.Encoding]::ASCII }
             "bigendianunicode" { [System.Text.Encoding]::BigEndianUnicode }
-            "bigendianutf32" { [System.Text.Encoding]::BigEndianUTF32 }
+            "bigendianutf32" { New-Object System.Text.UTF32Encoding($true, $true) }
             "oem" { [System.Text.Encoding]::Default }
             "unicode" { [System.Text.Encoding]::Unicode }
             "utf7" { [System.Text.Encoding]::UTF7 }

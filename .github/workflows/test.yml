@@ -1,0 +1,42 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  PESTER_VERSION: 5.8.0
+
+jobs:
+  pester:
+    name: Pester on ${{ matrix.shell }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # powershell is Windows PowerShell 5.1, the runtime of the runbooks in Azure Automation.
+        shell: [powershell, pwsh]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run tests
+        # GitHub does not evaluate expressions in shell:, so the shell is started as a program.
+        run: ${{ matrix.shell }} -NoProfile -NonInteractive -File Tests/Invoke-Tests.ps1 -PesterVersion ${{ env.PESTER_VERSION }}
+
+  compatibility:
+    name: Windows PowerShell 5.1 compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check the runbooks against Windows PowerShell 5.1
+        shell: pwsh
+        run: ./Tests/Test-Compatibility.ps1

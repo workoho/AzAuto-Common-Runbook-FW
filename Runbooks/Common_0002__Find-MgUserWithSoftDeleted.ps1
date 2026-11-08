@@ -1,5 +1,5 @@
 <#PSScriptInfo
-.VERSION 1.3.0
+.VERSION 1.3.1
 .GUID 6d840940-e0fe-4de7-80ad-c6d3d495d695
 .AUTHOR Julian Pawlowski
 .COMPANYNAME Workoho GmbH
@@ -12,6 +12,10 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+    Version 1.3.1 (2026-11-08)
+    - Find a user by user principal name. The check for '@' compared the whole value, so a UPN was looked up as onPremisesSamAccountName.
+    - Encode the UPN with System.Uri, which Windows PowerShell 5.1 has without loading System.Web.
+    - Double the apostrophes of a UPN or onPremisesSamAccountName for the filter.
     Version 1.3.0 (2024-06-23)
     - Add OutputType parameter to specify the output type of the result.
 #>
@@ -73,11 +77,11 @@ $StartupVariables = (Get-Variable | & { process { $_.Name } })      # Remember e
         $filter = if ($_ -match '^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$') {
             "id eq '$_'"
         }
-        elseif ($_ -contains '@') {
-            "userPrincipalName eq '$([System.Web.HttpUtility]::UrlEncode($_))'"
+        elseif ($_ -like '*@*') {
+            "userPrincipalName eq '$([System.Uri]::EscapeDataString(($_ -replace "'", "''")))'"
         }
         else {
-            "onPremisesSamAccountName eq '$_'"
+            "onPremisesSamAccountName eq '$($_ -replace "'", "''")'"
         }
 
         if ($null -ne $Property) {
